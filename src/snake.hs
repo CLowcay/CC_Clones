@@ -29,8 +29,11 @@ initSDL = do
 
 mainLoop :: ClockTime -> GameState -> IO ()
 mainLoop time0 state = do
+	renderFrame state
+
 	time1 <- getClockTime
 	let delay = clockTimeDiff time0 time1
+
 	event <- pollEvent
 	case event of
 		Quit -> return ()
@@ -65,6 +68,16 @@ renderAnimationLoopV dst frame x y offset animation = do
 		(surface animation) (Just$ srect {rectH = offset})
 		dst (Just$ Rect x (rectH srect - offset) 0 0)
 	return ()
+
+renderFrame :: GameState -> IO ()
+renderFrame state = do
+	let gfx = gs_gfx state
+	display <- getVideoSurface
+	blitSurface (gs_wallStamp state) Nothing display (Just$ Rect 0 0 0 0)
+	renderAnimation display 0 480 0 (gfx Map.! SidePanel)
+	Graphics.UI.SDL.flip display
+	return ()
+
 
 data Sprite = Digits | Paused | SidePanel |
 	HeadDown | HeadLeft | HeadRight | HeadUp |
