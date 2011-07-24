@@ -34,10 +34,33 @@ mainLoop time0 state = do
 	time1 <- getClockTime
 	let delay = clockTimeDiff time0 time1
 
-	event <- pollEvent
-	case event of
-		Quit -> return ()
-		_ -> mainLoop time1 state
+	events <- pollAllEvents
+	let (continue, state') = runState (handleAllEvents events) state
+	if continue then mainLoop time1 state' else return ()
+
+-- Get all available events, returns the backwards, so be sure reverse
+-- the list if order of events is important
+pollAllEvents :: IO ([Event])
+pollAllEvents = fmap reverse pollAllEvents0
+	where
+		pollAllEvents0 = do
+			event <- pollEvent
+			case event of
+				NoEvent -> return []
+				_ -> (liftM (event:)) pollAllEvents
+
+-- Handle a list of events
+-- Returns True if the event loop should continue, otherwise False
+handleAllEvents :: [Event] -> State GameState Bool
+handleAllEvents =
+	foldM (\continue -> \event -> do
+		continue' <- handleEvent event
+		return$ continue && continue'
+	) True
+
+handleEvent :: Event -> State GameState Bool
+handleEvent Quit = return False
+handleEvent _ = return True
 
 clockTimeDiff :: ClockTime -> ClockTime -> Integer
 clockTimeDiff time0 time1 = let timeDiff = diffClockTimes time1 time0 in
@@ -216,9 +239,9 @@ data GameState = GameState {
 	gs_gfx :: Map.Map Sprite Animation,
 	gs_wallStamp :: Surface,
 	gs_nextDirection :: Direction,
-	gs_frameNumber :: Int,
 	gs_ttFrameSwap :: Integer,
-	gs_snakeTiles :: [(Int, Int)],
+	gs_framesToAlignment :: Int,
+	gs_snakeTiles :: [((Int, Int), Bool)],
 	gs_foodTiles :: Map.Map (Int, Int) Int,
 	gs_wallTiles :: Set.Set (Int, Int),
 	gs_in_door :: (Int, Int, Bool),
@@ -237,8 +260,8 @@ initGameState = do
 		gs_gfx = gfx,
 		gs_wallStamp = wallStamp,
 		gs_nextDirection = DUp,
-		gs_frameNumber = 0,
 		gs_ttFrameSwap = 0,
+		gs_framesToAlignment = 15,
 		gs_snakeTiles = [],
 		gs_foodTiles = Map.empty,
 		gs_wallTiles = Set.empty,
@@ -293,26 +316,28 @@ loadLevel level state = do
 		gfx = gs_gfx state
 	fillRect wallStamp (Just$ Rect 0 0 480 480) (Pixel 0x00000000)
 	mapM_ (\((x, y), sprite) ->
-		renderAnimation wallStamp 0 (x * 16) (y * 16) (gfx Map.! sprite)) levelMap
+		renderAnimation wallStamp 0 (x * 16) (y * 16) (gfx Map.! sprite))
+		(filter (\(pos, sprite) ->
+			not$elem sprite [DoorInH, DoorInV, DoorOutH, DoorOutV]) levelMap)
 	
 	-- Prepare the doors
 	let inDoor = fst$ fromJust$ find
 		(\((x, y), sprite) -> sprite == DoorInH || sprite == DoorInV) levelMap
 	let outDoor = fst$ fromJust$ find
 		(\((x, y), sprite) -> sprite == DoorOutH || sprite == DoorOutV) levelMap
-	let snakeTiles = map (\(dx, dy) ->
-		((fst inDoor) + dx, (snd inDoor) + dy)) $
+	let snakeTiles = map (\((dx, dy), visible) ->
+		(((fst inDoor) + dx, (snd inDoor) + dy), visible)) $
 			case startDirection of
-				DUp -> [(0, 0), (-1, 0), (-2, 0)]
-				DDown -> [(0, 0), (1, 0), (2, 0)]
-				DLeft -> [(0, 0), (-1, 0), (-2, 0)]
-				DRight -> [(0, 0), (1, 0), (2, 0)]
+				DUp -> [((0, 0), True), ((-1, 0), False), ((-2, 0), False)]
+				DDown -> [((0, 0), True), ((1, 0), False), ((2, 0), False)]
+				DLeft -> [((0, 0), True), ((-1, 0), False), ((-2, 0), False)]
+				DRight -> [((0, 0), True), ((1, 0), False), ((2, 0), False)]
 	
 	-- Initialise the state
 	return$ state {
 		gs_nextDirection = startDirection,
-		gs_frameNumber = 0,
 		gs_ttFrameSwap = 0,
+		gs_framesToAlignment = 15,
 		gs_snakeTiles = snakeTiles,
 		gs_foodTiles = Map.fromList$ concatMap (\((x, y), sprite) ->
 			case sprite of
