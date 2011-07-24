@@ -78,6 +78,40 @@ renderFrame state = do
 	Graphics.UI.SDL.flip display
 	return ()
 
+inferSnakeSprites :: [(Int, Int)] -> [Sprite]
+inferSnakeSprites tiles =
+	(case (diffs$ take 2 tiles) of
+		[(0, 0), (1, 0)] -> HeadLeft
+		[(0, 0), (-1, 0)] -> HeadRight
+		[(0, 0), (0, 1)] -> HeadDown
+		[(0, 0), (0, -1)] -> HeadUp
+	) : (map (\xs -> case (diffs xs) of
+		[(0, 0), (1, 0), (1, 0)] -> SnakeH
+		[(0, 0), (-1, 0), (-1, 0)] -> SnakeH
+		[(0, 0), (0, 1), (0, 1)] -> SnakeV
+		[(0, 0), (0, -1), (0, -1)] -> SnakeV
+		[(0, 0), (1, 0), (0, 1)] -> SnakeUR
+		[(0, 0), (0, -1), (-1, 0)] -> SnakeUR
+		[(0, 0), (0, 1), (1, 0)] -> SnakeDL
+		[(0, 0), (-1, 0), (0, -1)] -> SnakeDL
+		[(0, 0), (-1, 0), (0, 1)] -> SnakeUL
+		[(0, 0), (0, -1), (1, 0)] -> SnakeUL
+		[(0, 0), (0, 1), (-1, 0)] -> SnakeDR
+		[(0, 0), (1, 0), (0, -1)] -> SnakeDR
+	) (slidingWindow 3 tiles)) ++
+	(case (diffs$ drop ((length tiles) - 2) tiles) of
+		[(0, 0), (1, 0)] -> [SnakeTHR]
+		[(0, 0), (-1, 0)] -> [SnakeTHL]
+		[(0, 0), (0, 1)] -> [SnakeTVD]
+		[(0, 0), (0, -1)] -> [SnakeTVU]
+	)
+	where
+		slidingWindow n xs
+			| length xs < n = []
+			| otherwise = (take n xs):(slidingWindow n (tail xs))
+		diffs xs = snd$ foldl
+			(\((x0, y0), rs) -> \(x, y) -> ((x, y), (x - x0, y - y0):rs))
+			(head xs, []) xs
 
 data Sprite = Digits | Paused | SidePanel |
 	HeadDown | HeadLeft | HeadRight | HeadUp |
