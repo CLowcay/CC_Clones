@@ -122,45 +122,63 @@ renderFrame state = do
 	Graphics.UI.SDL.flip display
 	return ()
 
-renderSnake :: GameState -> IO ()
-renderSnake state = do
+renderSnake :: Surface -> GameState -> IO ()
+renderSnake dst state = do
 	let
 		snakeTiles = gs_snakeTiles state
 		snakeSprites = zip snakeTiles (inferSnakeSprites (map fst snakeTiles))
+		headSprite = head snakeSprites
+		secondSprite = head$tail snakeSprites
+		tailSprite = last snakeSprites
+		gfx = gs_gfx state
+		offset = gs_framesToAlignment state
+	
+	-- render head
+	case headSprite of
+		(((x, y), show), HeadLeft) -> do
+			when show $ (renderLeft1 (gfx Map.! HeadLeft) offset x y) >> return ()
+		(((x, y), show), HeadRight) -> do
+			when show $ (renderRight1 (gfx Map.! HeadRight) offset x y) >> return ()
+		(((x, y), show), HeadUp) -> do
+			when show $ (renderUp1 (gfx Map.! HeadUp) offset x y) >> return ()
+		(((x, y), show), HeadDown) -> do
+			when show $ (renderDown1 (gfx Map.! HeadDown) offset x y) >> return ()
+	-- render second
+	-- render body
+	-- render tail
 	return ()
 	where
-		gfx = gs_gfx state
-		renderLeft1 src dst offset x y =
-			blitSurface
-				src (Just$ Rect 0 0 (16 - offset) 16)
+		renderLeft1 src offset x y =
+			blitSurface (surface src)
+				(Just$ Rect 0 0 (16 - offset) 16)
 				dst (Just$ Rect (x + offset) y 0 0)
-		renderLeft2 src dst offset x y =
-			blitSurface
-				src (Just$ Rect (16 - offset) 0 offset 16)
+		renderLeft2 src offset x y =
+			blitSurface (surface src)
+				(Just$ Rect (16 - offset) 0 offset 16)
 				dst (Just$ Rect x y 0 0)
-		renderRight1 src dst offset x y =
-			blitSurface
-				src (Just$ Rect offset 0 (16 - offset) 16)
+		renderRight1 src offset x y =
+			blitSurface (surface src)
+				(Just$ Rect offset 0 (16 - offset) 16)
 				dst (Just$ Rect x y 0 0)
-		renderRight2 src dst offset x y =
-			blitSurface
-				src (Just$ Rect 0 0 offset 16)
+		renderRight2 src offset x y =
+			blitSurface (surface src)
+				(Just$ Rect 0 0 offset 16)
 				dst (Just$ Rect (x + offset) y 0 0)
-		renderUp1 src dst offset x y =
-			blitSurface
-				src (Just$ Rect 0 0 16 (16 - offset))
+		renderUp1 src offset x y =
+			blitSurface (surface src)
+				(Just$ Rect 0 0 16 (16 - offset))
 				dst (Just$ Rect x (y + offset) 0 0)
-		renderUp2 src dst offset x y =
-			blitSurface
-				src (Just$ Rect 0 (16 - offset) 16 offset)
+		renderUp2 src offset x y =
+			blitSurface (surface src)
+				(Just$ Rect 0 (16 - offset) 16 offset)
 				dst (Just$ Rect x y 0 0)
-		renderDown1 src dst offset x y =
-			blitSurface
-				src (Just$ Rect 0 offset 16 (16 - offset))
+		renderDown1 src offset x y =
+			blitSurface (surface src)
+				(Just$ Rect 0 offset 16 (16 - offset))
 				dst (Just$ Rect x y 0 0)
-		renderDown2 src dst offset x y =
-			blitSurface
-				src (Just$ Rect 0 0 16 offset)
+		renderDown2 src offset x y =
+			blitSurface (surface src)
+				(Just$ Rect 0 0 16 offset)
 				dst (Just$ Rect x (y + offset) 0 0)
 
 inferSnakeSprites :: [(Int, Int)] -> [Sprite]
