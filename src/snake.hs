@@ -36,7 +36,12 @@ mainLoop time0 state = do
 
 	events <- pollAllEvents
 	let (continue, state') = runState (handleAllEvents events) state
+	let state'' = updateGame delay state'
 	if continue then mainLoop time1 state' else return ()
+
+clockTimeDiff :: ClockTime -> ClockTime -> Integer
+clockTimeDiff time0 time1 = let timeDiff = diffClockTimes time1 time0 in
+	max ((tdPicosec timeDiff) + (toInteger$ tdSec timeDiff) * 10^12) 0
 
 -- Get all available events, returns the backwards, so be sure reverse
 -- the list if order of events is important
@@ -60,11 +65,27 @@ handleAllEvents =
 
 handleEvent :: Event -> State GameState Bool
 handleEvent Quit = return False
+handleEvent (KeyDown sym) = do
+	state <- get
+	case (symKey sym) of
+		SDLK_UP -> do
+			put$state {gs_nextDirection = DUp}
+			return True
+		SDLK_DOWN -> do
+			put$state {gs_nextDirection = DDown}
+			return True
+		SDLK_LEFT -> do
+			put$state {gs_nextDirection = DLeft}
+			return True
+		SDLK_RIGHT -> do
+			put$state {gs_nextDirection = DRight}
+			return True
+		SDLK_ESCAPE -> return False
+		_ -> return True
 handleEvent _ = return True
 
-clockTimeDiff :: ClockTime -> ClockTime -> Integer
-clockTimeDiff time0 time1 = let timeDiff = diffClockTimes time1 time0 in
-	max ((tdPicosec timeDiff) + (toInteger$ tdSec timeDiff) * 10^12) 0
+updateGame :: Integer -> GameState -> GameState
+updateGame delay state = state
 
 data Animation = Animation {
 	surface :: Surface,
@@ -100,6 +121,47 @@ renderFrame state = do
 	renderAnimation display 0 480 0 (gfx Map.! SidePanel)
 	Graphics.UI.SDL.flip display
 	return ()
+
+renderSnake :: GameState -> IO ()
+renderSnake state = do
+	let
+		snakeTiles = gs_snakeTiles state
+		snakeSprites = zip snakeTiles (inferSnakeSprites (map fst snakeTiles))
+	return ()
+	where
+		gfx = gs_gfx state
+		renderLeft1 src dst offset x y =
+			blitSurface
+				src (Just$ Rect 0 0 (16 - offset) 16)
+				dst (Just$ Rect (x + offset) y 0 0)
+		renderLeft2 src dst offset x y =
+			blitSurface
+				src (Just$ Rect (16 - offset) 0 offset 16)
+				dst (Just$ Rect x y 0 0)
+		renderRight1 src dst offset x y =
+			blitSurface
+				src (Just$ Rect offset 0 (16 - offset) 16)
+				dst (Just$ Rect x y 0 0)
+		renderRight2 src dst offset x y =
+			blitSurface
+				src (Just$ Rect 0 0 offset 16)
+				dst (Just$ Rect (x + offset) y 0 0)
+		renderUp1 src dst offset x y =
+			blitSurface
+				src (Just$ Rect 0 0 16 (16 - offset))
+				dst (Just$ Rect x (y + offset) 0 0)
+		renderUp2 src dst offset x y =
+			blitSurface
+				src (Just$ Rect 0 (16 - offset) 16 offset)
+				dst (Just$ Rect x y 0 0)
+		renderDown1 src dst offset x y =
+			blitSurface
+				src (Just$ Rect 0 offset 16 (16 - offset))
+				dst (Just$ Rect x y 0 0)
+		renderDown2 src dst offset x y =
+			blitSurface
+				src (Just$ Rect 0 0 16 offset)
+				dst (Just$ Rect x (y + offset) 0 0)
 
 inferSnakeSprites :: [(Int, Int)] -> [Sprite]
 inferSnakeSprites tiles =
