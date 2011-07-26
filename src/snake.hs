@@ -151,26 +151,33 @@ renderSnake dst frame state = do
 		spriteShow = snd.fst
 		spritePos = fst.fst
 		getSprite = snd
-		headSprite = head snakeSprites
-		secondSprite = head$tail snakeSprites
-		tailSprite = last snakeSprites
+		-- offsets for rendering parts of the head, see renderHeadx
 		offset = gs_framesToAlignment state
+		offset2 = offset + 3
+		offset3 = 3 - ((16 - offset) `mod` 16)
+		nHeadSprites = if offset3 < 0 then 2 else 3
+		headAni = gfx Map.! (getSprite$head snakeSprites)
+		bodySprites = drop nHeadSprites snakeSprites
+		tailSprite = last snakeSprites
 
 	-- render head
-	case headSprite of
-		(_, HeadLeft) ->
-			renderHead headSprite secondSprite offset renderLeft1 renderLeft2
-		(_, HeadRight) ->
-			renderHead headSprite secondSprite offset renderRight1 renderRight2
-		(_, HeadUp) ->
-			renderHead headSprite secondSprite offset renderUp1 renderUp2
-		(_, HeadDown) ->
-			renderHead headSprite secondSprite offset renderDown1 renderDown2
+	let (render1, render2) = case head snakeSprites of
+		(_, HeadLeft) -> (renderLeft1, renderLeft2)
+		(_, HeadRight) -> (renderRight1, renderRight2)
+		(_, HeadUp) -> (renderUp1, renderUp2)
+		(_, HeadDown) -> (renderDown1, renderDown2)
+	if nHeadSprites == 2
+		then do
+			renderHead1 (head snakeSprites) offset render1
+			renderHead3 (head$ tail snakeSprites) headAni offset2 render1 render2
+		else do
+			renderHead1 (head snakeSprites) offset render1
+			renderHead2 (head$ tail snakeSprites) headAni offset2 render2
+			renderHead3 (head$ drop 2 snakeSprites) headAni offset3 render1 render2
 
 	-- render body
 	mapM_ (\(((x, y), show), sprite) ->
-			renderAnimation dst 0 x y (gfx Map.! sprite)) $
-		Data.List.init (drop 2 snakeSprites)
+		renderAnimation dst 0 x y (gfx Map.! sprite)) bodySprites
 
 	-- render tail
 	case tailSprite of
@@ -190,53 +197,55 @@ renderSnake dst frame state = do
 	return ()
 	where
 		gfx = gs_gfx state
-		renderHead headSprite secondSprite offset render1 render2 = do
-			let
-				(((x, y), show1), sprite1) = headSprite
-				(((x2, y2), show2), sprite2) = secondSprite
-				anim1 = gfx Map.! sprite1
-				anim2 = gfx Map.! sprite2
-			when show1 $ (render1 anim1 offset x y) >> return ()
-			when show2 $
-				if not$elem sprite2 [SnakeUL, SnakeUR, SnakeDL, SnakeDR] then do
-					render2 anim1 offset x2 y2
-					render1 anim2 offset x2 y2
+		cornerSprites = [SnakeUL, SnakeDL, SnakeUR, SnakeDR]
+		-- first offset is frames to alignment
+		renderHead1 (((x, y), show), sprite) offset render =
+			when show $ (render (gfx Map.! sprite) offset x y) >> return ()
+		-- second offset is frames to alignment + 3
+		renderHead2 (((x, y), show), _) headAni offset render =
+			when show $ (render headAni offset 16 x y) >> return ()
+		-- third offset is 3 - ((16 - frames to alignment) mod 16)
+		renderHead3 (((x, y), show), sprite) headAni offset render1 render2 =
+			when show $ if not$ elem sprite cornerSprites
+				then do
+					render2 headAni offset 16 x y
+					render1 (gfx Map.! sprite) (15 - offset) x y
 					return ()
 				else do
-					renderAnimation dst 0 x2 y2 anim2
+					renderAnimation dst 0 x y (gfx Map.! sprite)
 					return ()
 		renderLeft1 src offset x y =
 			blitSurface (surface src)
 				(Just$ adjRect src $ Rect 0 0 (16 - offset) 16)
 				dst (Just$ Rect (x + offset) y 0 0)
-		renderLeft2 src offset x y =
+		renderLeft2 src offset w x y =
 			blitSurface (surface src)
-				(Just$ adjRect src $ Rect (16 - offset) 0 offset 16)
+				(Just$ adjRect src $ Rect (19 - offset) 0 w 16)
 				dst (Just$ Rect x y 0 0)
 		renderRight1 src offset x y =
 			blitSurface (surface src)
 				(Just$ adjRect src $ Rect (offset + 3) 0 (16 - offset) 16)
 				dst (Just$ Rect x y 0 0)
-		renderRight2 src offset x y =
+		renderRight2 src offset w x y =
 			blitSurface (surface src)
-				(Just$ adjRect src $ Rect 0 0 offset 16)
-				dst (Just$ Rect (x + offset) y 0 0)
+				(Just$ adjRect src $ Rect (offset - w) 0 w 16)
+				dst (Just$ Rect (x + 16 - w) y 0 0)
 		renderUp1 src offset x y =
 			blitSurface (surface src)
 				(Just$ adjRect src $ Rect 0 0 16 (16 - offset))
 				dst (Just$ Rect x (y + offset) 0 0)
-		renderUp2 src offset x y =
+		renderUp2 src offset h x y =
 			blitSurface (surface src)
-				(Just$ adjRect src $ Rect 0 (16 - offset) 16 offset)
+				(Just$ adjRect src $ Rect 0 (19 - offset) 16 h)
 				dst (Just$ Rect x y 0 0)
 		renderDown1 src offset x y =
 			blitSurface (surface src)
 				(Just$ adjRect src $ Rect 0 (offset + 3) 16 (16 - offset))
 				dst (Just$ Rect x y 0 0)
-		renderDown2 src offset x y =
+		renderDown2 src offset h x y =
 			blitSurface (surface src)
-				(Just$ adjRect src $ Rect 0 0 16 offset)
-				dst (Just$ Rect x (y + 16 - offset) 0 0)
+				(Just$ adjRect src $ Rect 0 (offset - h) 16 h)
+				dst (Just$ Rect x (y + 16 - h) 0 0)
 		adjRect src (Rect x y w h) =
 			let (Rect x0 y0 _ _) = ((frames src) ! frame) in
 				Rect (x0 + x) (y0 + y) w h
