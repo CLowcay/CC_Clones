@@ -137,7 +137,7 @@ renderFrame state = do
 	display <- getVideoSurface
 	blitSurface (gs_wallStamp state) Nothing display (Just$ Rect 0 0 0 0)
 	renderAnimation display 0 480 0 (gfx Map.! SidePanel)
-	renderSnake display 0 state
+	renderSnake display 8 state
 	Graphics.UI.SDL.flip display
 	return ()
 
@@ -215,7 +215,7 @@ renderSnake dst frame state = do
 				dst (Just$ Rect x y 0 0)
 		renderRight1 src offset x y =
 			blitSurface (surface src)
-				(Just$ adjRect src $ Rect offset 0 (16 - offset) 16)
+				(Just$ adjRect src $ Rect (offset + 3) 0 (16 - offset) 16)
 				dst (Just$ Rect x y 0 0)
 		renderRight2 src offset x y =
 			blitSurface (surface src)
@@ -231,7 +231,7 @@ renderSnake dst frame state = do
 				dst (Just$ Rect x y 0 0)
 		renderDown1 src offset x y =
 			blitSurface (surface src)
-				(Just$ adjRect src $ Rect 0 offset 16 (16 - offset))
+				(Just$ adjRect src $ Rect 0 (offset + 3) 16 (16 - offset))
 				dst (Just$ Rect x y 0 0)
 		renderDown2 src offset x y =
 			blitSurface (surface src)
