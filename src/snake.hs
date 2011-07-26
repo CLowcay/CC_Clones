@@ -38,7 +38,7 @@ mainLoop time0 state = do
 	events <- pollAllEvents
 	let (continue, state') = runState (handleAllEvents events) state
 	let state'' = updateGame delay state'
-	if continue then mainLoop time1 state' else return ()
+	if continue then mainLoop time1 state'' else return ()
 
 clockTimeDiff :: ClockTime -> ClockTime -> Integer
 clockTimeDiff time0 time1 = let timeDiff = diffClockTimes time1 time0 in
@@ -85,8 +85,24 @@ handleEvent (KeyDown sym) = do
 		_ -> return True
 handleEvent _ = return True
 
+frameDelay :: Integer
+frameDelay = ((1::Integer) * 10^12) `div` 16
+
 updateGame :: Integer -> GameState -> GameState
-updateGame delay state = state
+updateGame delay state =
+	let
+		anidiff = (gs_ttFrameSwap state) - delay
+		advanceFrames = fromInteger$ if anidiff < 0
+			then ((abs anidiff) `div` frameDelay) + 1 else 0
+		offset = (gs_framesToAlignment state) - advanceFrames
+		framesToAlignment = if offset < 0 then 16 + (offset `mod` 16) else offset
+	in
+		state {
+			gs_framesToAlignment = framesToAlignment,
+			gs_ttFrameSwap = if anidiff < 0
+				then frameDelay + (anidiff `mod` frameDelay)
+				else anidiff
+		}
 
 data Animation = Animation {
 	surface :: Surface,
@@ -128,7 +144,9 @@ renderSnake :: Surface -> GameState -> IO ()
 renderSnake dst state = do
 	let
 		snakeTiles = gs_snakeTiles state
-		snakeSprites = zip snakeTiles (inferSnakeSprites (map fst snakeTiles))
+		snakeSprites = zip
+			(map (\((x, y), show) -> ((x * 16, y * 16), show)) snakeTiles)
+			(inferSnakeSprites (map fst snakeTiles))
 		spriteShow = snd.fst
 		spritePos = fst.fst
 		getSprite = snd
@@ -136,6 +154,7 @@ renderSnake dst state = do
 		secondSprite = head$tail snakeSprites
 		tailSprite = last snakeSprites
 		offset = gs_framesToAlignment state
+	putStrLn$ show headSprite
 
 	-- render head
 	case headSprite of
@@ -218,15 +237,15 @@ renderSnake dst state = do
 		renderDown2 src offset x y =
 			blitSurface (surface src)
 				(Just$ Rect 0 0 16 offset)
-				dst (Just$ Rect x (y + offset) 0 0)
+				dst (Just$ Rect x (y + 16 - offset) 0 0)
 
 inferSnakeSprites :: [(Int, Int)] -> [Sprite]
 inferSnakeSprites tiles =
 	(case (diffs$ take 2 tiles) of
-		[(0, 0), (1, 0)] -> HeadLeft
-		[(0, 0), (-1, 0)] -> HeadRight
-		[(0, 0), (0, 1)] -> HeadDown
-		[(0, 0), (0, -1)] -> HeadUp
+		[(0, 0), (1, 0)] -> HeadRight
+		[(0, 0), (-1, 0)] -> HeadLeft
+		[(0, 0), (0, 1)] -> HeadUp
+		[(0, 0), (0, -1)] -> HeadDown
 		x -> traceShow x (error "Invalid diffs for head")
 	) : (map (\xs -> case (diffs xs) of
 		[(0, 0), (1, 0), (1, 0)] -> SnakeH
@@ -266,7 +285,7 @@ data Sprite = Digits | Paused | SidePanel |
 	WallTVU | WallTVD | WallTHL | WallTHR | WallDot |
 	WallXR | WallXL | WallXU | WallXD | WallX |
 	DoorInH | DoorOutH | DoorInV | DoorOutV
-	deriving (Enum, Ord, Eq)
+	deriving (Enum, Ord, Eq, Show)
 allSprites = enumFrom Digits
 
 loadSprites :: IO (Map.Map Sprite Animation)
@@ -450,10 +469,11 @@ loadLevel level state = do
 	let snakeTiles = map (\((dx, dy), visible) ->
 		(((fst inDoor) + dx, (snd inDoor) + dy), visible)) $
 			case startDirection of
-				DUp -> [((0, 0), True), ((0, 1), False), ((0, 2), False)]
-				DDown -> [((0, 0), True), ((0, -1), False), ((0, -2), False)]
-				DLeft -> [((0, 0), True), ((-1, 0), False), ((-2, 0), False)]
-				DRight -> [((0, 0), True), ((1, 0), False), ((2, 0), False)]
+				DUp -> [((0, 0), True), ((0, 1), True), ((0, 2), False)]
+				DDown -> [((0, 0), True), ((0, -1), True), ((0, -2), False)]
+				DLeft -> [((0, 0), True), ((-1, 0), True), ((-2, 0), False)]
+				DRight -> [((0, 0), True), ((1, 0), True), ((2, 0), False)]
+	putStr$ show snakeTiles
 	
 	-- Initialise the state
 	return$ state {
