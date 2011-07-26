@@ -94,8 +94,9 @@ updateGame delay state =
 		anidiff = (gs_ttFrameSwap state) - delay
 		advanceFrames = fromInteger$ if anidiff < 0
 			then ((abs anidiff) `div` frameDelay) + 1 else 0
-		offset = (gs_framesToAlignment state) - advanceFrames
-		framesToAlignment = if offset < 0 then 16 + (offset `mod` 16) else offset
+		offset' = (gs_framesToAlignment state) - advanceFrames
+		framesToAlignment = if offset' < 0
+			then offset' `mod` 16 else offset'
 	in
 		state {
 			gs_framesToAlignment = framesToAlignment,
@@ -136,12 +137,12 @@ renderFrame state = do
 	display <- getVideoSurface
 	blitSurface (gs_wallStamp state) Nothing display (Just$ Rect 0 0 0 0)
 	renderAnimation display 0 480 0 (gfx Map.! SidePanel)
-	renderSnake display state
+	renderSnake display 0 state
 	Graphics.UI.SDL.flip display
 	return ()
 
-renderSnake :: Surface -> GameState -> IO ()
-renderSnake dst state = do
+renderSnake :: Surface -> Int -> GameState -> IO ()
+renderSnake dst frame state = do
 	let
 		snakeTiles = gs_snakeTiles state
 		snakeSprites = zip
@@ -154,7 +155,6 @@ renderSnake dst state = do
 		secondSprite = head$tail snakeSprites
 		tailSprite = last snakeSprites
 		offset = gs_framesToAlignment state
-	putStrLn$ show headSprite
 
 	-- render head
 	case headSprite of
@@ -205,39 +205,41 @@ renderSnake dst state = do
 				else do
 					renderAnimation dst 0 x2 y2 anim2
 					return ()
-
 		renderLeft1 src offset x y =
 			blitSurface (surface src)
-				(Just$ Rect 0 0 (16 - offset) 16)
+				(Just$ adjRect src $ Rect 0 0 (16 - offset) 16)
 				dst (Just$ Rect (x + offset) y 0 0)
 		renderLeft2 src offset x y =
 			blitSurface (surface src)
-				(Just$ Rect (16 - offset) 0 offset 16)
+				(Just$ adjRect src $ Rect (16 - offset) 0 offset 16)
 				dst (Just$ Rect x y 0 0)
 		renderRight1 src offset x y =
 			blitSurface (surface src)
-				(Just$ Rect offset 0 (16 - offset) 16)
+				(Just$ adjRect src $ Rect offset 0 (16 - offset) 16)
 				dst (Just$ Rect x y 0 0)
 		renderRight2 src offset x y =
 			blitSurface (surface src)
-				(Just$ Rect 0 0 offset 16)
+				(Just$ adjRect src $ Rect 0 0 offset 16)
 				dst (Just$ Rect (x + offset) y 0 0)
 		renderUp1 src offset x y =
 			blitSurface (surface src)
-				(Just$ Rect 0 0 16 (16 - offset))
+				(Just$ adjRect src $ Rect 0 0 16 (16 - offset))
 				dst (Just$ Rect x (y + offset) 0 0)
 		renderUp2 src offset x y =
 			blitSurface (surface src)
-				(Just$ Rect 0 (16 - offset) 16 offset)
+				(Just$ adjRect src $ Rect 0 (16 - offset) 16 offset)
 				dst (Just$ Rect x y 0 0)
 		renderDown1 src offset x y =
 			blitSurface (surface src)
-				(Just$ Rect 0 offset 16 (16 - offset))
+				(Just$ adjRect src $ Rect 0 offset 16 (16 - offset))
 				dst (Just$ Rect x y 0 0)
 		renderDown2 src offset x y =
 			blitSurface (surface src)
-				(Just$ Rect 0 0 16 offset)
+				(Just$ adjRect src $ Rect 0 0 16 offset)
 				dst (Just$ Rect x (y + 16 - offset) 0 0)
+		adjRect src (Rect x y w h) =
+			let (Rect x0 y0 _ _) = ((frames src) ! frame) in
+				Rect (x0 + x) (y0 + y) w h
 
 inferSnakeSprites :: [(Int, Int)] -> [Sprite]
 inferSnakeSprites tiles =
@@ -469,11 +471,10 @@ loadLevel level state = do
 	let snakeTiles = map (\((dx, dy), visible) ->
 		(((fst inDoor) + dx, (snd inDoor) + dy), visible)) $
 			case startDirection of
-				DUp -> [((0, 0), True), ((0, 1), True), ((0, 2), False)]
-				DDown -> [((0, 0), True), ((0, -1), True), ((0, -2), False)]
-				DLeft -> [((0, 0), True), ((-1, 0), True), ((-2, 0), False)]
-				DRight -> [((0, 0), True), ((1, 0), True), ((2, 0), False)]
-	putStr$ show snakeTiles
+				DUp -> [((0, 0), True), ((0, 1), False), ((0, 2), False)]
+				DDown -> [((0, 0), True), ((0, -1), False), ((0, -2), False)]
+				DLeft -> [((0, 0), True), ((-1, 0), False), ((-2, 0), False)]
+				DRight -> [((0, 0), True), ((1, 0), False), ((2, 0), False)]
 	
 	-- Initialise the state
 	return$ state {
