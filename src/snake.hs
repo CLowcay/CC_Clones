@@ -167,7 +167,8 @@ renderSnake dst frame state = do
 		offsetTail = 15 - offset
 		offset2 = offset + 3
 		offset3 = offset2 - 16
-		nHeadSprites = if offset3 < 0 then 2 else 3
+		nHeadSprites = if offset3 < 0 ||
+			elem (getSprite$head$tail snakeSprites) cornerSprites then 2 else 3
 		headAni = gfx Map.! (getSprite$head snakeSprites)
 		bodySprites = Data.List.init$ drop nHeadSprites snakeSprites
 		tailSprite = last snakeSprites
@@ -214,8 +215,13 @@ renderSnake dst frame state = do
 		renderHead1 (((x, y), show), sprite) offset render =
 			when show $ (render (gfx Map.! sprite) frame offset x y) >> return ()
 		-- second offset is frames to alignment + 3
-		renderHead2 (((x, y), show), _) headAni offset render =
-			when show $ (render headAni frame offset 16 x y) >> return ()
+		renderHead2 (((x, y), show), sprite) headAni offset render =
+			when show $ if not$ elem sprite cornerSprites then do
+					render headAni frame offset 16 x y
+					return ()
+				else do
+					renderAnimation dst 0 x y (gfx Map.! sprite)
+					return ()
 		-- third offset is 3 - ((16 - frames to alignment) mod 16)
 		renderHead3 (((x, y), show), sprite) headAni offset render1 render2 =
 			when show $ if not$ elem sprite cornerSprites
