@@ -170,8 +170,8 @@ renderSnake dst frame state = do
 		nHeadSprites = if offset3 < 0 ||
 			elem (getSprite$head$tail snakeSprites) cornerSprites then 2 else 3
 		headAni = gfx Map.! (getSprite$head snakeSprites)
-		bodySprites = Data.List.init$ drop nHeadSprites snakeSprites
-		tailSprite = last snakeSprites
+		bodySprites = drop 2 (reverse (drop nHeadSprites snakeSprites))
+		tailSprites = take 2 (reverse snakeSprites)
 
 	-- render head
 	let (render1, renderT1, render2) = case head snakeSprites of
@@ -193,28 +193,24 @@ renderSnake dst frame state = do
 		renderAnimation dst 0 x y (gfx Map.! sprite)) bodySprites
 
 	-- render tail
-	case tailSprite of
-		(((x, y), show), SnakeTHL) -> when show $ do
-			renderLeft1 (gfx Map.! SnakeTHL) 0 offsetTail x y
-			return ()
-		(((x, y), show), SnakeTHR) -> when show $ do
-			renderRightT1 (gfx Map.! SnakeTHR) 0 offsetTail x y
-			return ()
-		(((x, y), show), SnakeTVU) -> when show $ do
-			renderUp1 (gfx Map.! SnakeTVU) 0 offsetTail x y
-			return ()
-		(((x, y), show), SnakeTVD) -> when show $ do
-			renderDownT1 (gfx Map.! SnakeTVD) 0 offsetTail x y
-			return ()
+	case tailSprites of
+		[sprite1@(_, SnakeTHL), sprite2] ->
+			renderTail sprite1 sprite2 offsetTail (renderLeft1) (renderLeftT2)
+		[sprite1@(_, SnakeTHR), sprite2] ->
+			renderTail sprite1 sprite2 offsetTail (renderRightT1) (renderRight2)
+		[sprite1@(_, SnakeTVU), sprite2] ->
+			renderTail sprite1 sprite2 offsetTail (renderUp1) (renderUpT2)
+		[sprite1@(_, SnakeTVD), sprite2] ->
+			renderTail sprite1 sprite2 offsetTail (renderDownT1) (renderDown2)
 
 	return ()
 	where
 		gfx = gs_gfx state
 		cornerSprites = [SnakeUL, SnakeDL, SnakeUR, SnakeDR]
-		-- first offset is frames to alignment
+
 		renderHead1 (((x, y), show), sprite) offset render =
 			when show $ (render (gfx Map.! sprite) frame offset x y) >> return ()
-		-- second offset is frames to alignment + 3
+
 		renderHead2 (((x, y), show), sprite) headAni offset render =
 			when show $ if not$ elem sprite cornerSprites then do
 					render headAni frame offset 16 x y
@@ -222,16 +218,33 @@ renderSnake dst frame state = do
 				else do
 					renderAnimation dst 0 x y (gfx Map.! sprite)
 					return ()
-		-- third offset is 3 - ((16 - frames to alignment) mod 16)
+
 		renderHead3 (((x, y), show), sprite) headAni offset render1 render2 =
 			when show $ if not$ elem sprite cornerSprites
 				then do
-					render2 headAni frame offset 16 x y
+					render2 headAni frame offset offset x y
 					render1 (gfx Map.! sprite) 0 offset x y
 					return ()
 				else do
 					renderAnimation dst 0 x y (gfx Map.! sprite)
 					return ()
+
+		renderTail sprite1 sprite2 offset render1 render2 = do
+			let 
+				(((x1, y1), show1), s1) = sprite1
+				(((x2, y2), show2), s2) = sprite2
+			when show1 $ do
+				render1 (gfx Map.! s1) 0 offset x1 y1
+				return ()
+			when show2 $ if not$ elem s2 cornerSprites
+				then do
+					render2 (gfx Map.! s1) 0 offset offset x2 y2
+					render1 (gfx Map.! s2) 0 offset x2 y2
+					return ()
+				else do
+					renderAnimation dst 0 x2 y2 (gfx Map.! s2)
+					return ()
+
 		renderLeft1 src frame offset x y =
 			blitSurface (surface src)
 				(Just$ adjRect src frame $ Rect 0 0 (16 - offset) 16)
@@ -239,6 +252,10 @@ renderSnake dst frame state = do
 		renderLeft2 src frame offset w x y =
 			blitSurface (surface src)
 				(Just$ adjRect src frame $ Rect (19 - offset) 0 w 16)
+				dst (Just$ Rect x y 0 0)
+		renderLeftT2 src frame offset w x y =
+			blitSurface (surface src)
+				(Just$ adjRect src frame $ Rect (16 - offset) 0 w 16)
 				dst (Just$ Rect x y 0 0)
 		renderRight1 src frame offset x y =
 			blitSurface (surface src)
@@ -259,6 +276,10 @@ renderSnake dst frame state = do
 		renderUp2 src frame offset h x y =
 			blitSurface (surface src)
 				(Just$ adjRect src frame $ Rect 0 (19 - offset) 16 h)
+				dst (Just$ Rect x y 0 0)
+		renderUpT2 src frame offset h x y =
+			blitSurface (surface src)
+				(Just$ adjRect src frame $ Rect 0 (16 - offset) 16 h)
 				dst (Just$ Rect x y 0 0)
 		renderDown1 src frame offset x y =
 			blitSurface (surface src)
@@ -506,10 +527,10 @@ loadLevel level state = do
 	let snakeTiles = map (\((dx, dy), visible) ->
 		(((fst inDoor) + dx, (snd inDoor) + dy), visible)) $
 			case startDirection of
-				DUp -> [((0, 0), True), ((0, 1), False), ((0, 2), False), ((0, 3), False)]
-				DDown -> [((0, 0), True), ((0, -1), False), ((0, -2), False), ((0, -3), False)]
-				DLeft -> [((0, 0), True), ((-1, 0), False), ((-2, 0), False), ((-3, 0), False)]
-				DRight -> [((0, 0), True), ((1, 0), False), ((2, 0), False), ((3, 0), False)]
+				DUp -> map (\i -> ((0, i), i == 0)) [0..4]
+				DDown -> map (\i -> ((0, -i), i == 0)) [0..4]
+				DLeft -> map (\i -> ((-i, 0), i == 0)) [0..4]
+				DRight -> map (\i -> ((i, 0), i == 0)) [0..4]
 	
 	-- Initialise the state
 	return$ state {
