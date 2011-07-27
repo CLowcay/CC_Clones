@@ -145,10 +145,13 @@ renderAnimationLoopV dst frame x y offset animation = do
 renderFrame :: GameState -> IO ()
 renderFrame state = do
 	let gfx = gs_gfx state
+	let frame =
+		if Map.member (fst$head$ gs_snakeTiles state) (gs_foodTiles state)
+			then ((15 - (gs_framesToAlignment state) + 5) `mod` 16) else 4
 	display <- getVideoSurface
 	blitSurface (gs_wallStamp state) Nothing display (Just$ Rect 0 0 0 0)
 	renderAnimation display 0 480 0 (gfx Map.! SidePanel)
-	renderSnake display 8 state
+	renderSnake display frame state
 	Graphics.UI.SDL.flip display
 	return ()
 
