@@ -105,16 +105,28 @@ updateGame delay state =
 			gs_ttFrameSwap = if anidiff < 0
 				then frameDelay + (anidiff `mod` frameDelay)
 				else anidiff,
-			gs_snakeTiles = times advanceTiles (advanceTile) (gs_snakeTiles state)
+			gs_holdCount =
+				(max 0 (gs_holdCount state - advanceTiles)) +
+				if advanceTiles > 0 && (Map.member (fst$head snakeTiles) foodTiles)
+					then foodTiles Map.! (fst$head snakeTiles) else 0,
+			gs_snakeTiles =
+				advanceAllTiles snakeTiles (gs_holdCount state) advanceTiles
 		}
 	where
-		times 0 f x = x
-		times n f x = times (n - 1) f (f x)
-		advanceTile (h@((x, y), _):body) = case gs_nextDirection state of
-			DUp -> ((x, y - 1), True):h:(Data.List.init body)
-			DDown -> ((x, y + 1), True):h:(Data.List.init body)
-			DLeft -> ((x - 1, y), True):h:(Data.List.init body)
-			DRight -> ((x + 1, y), True):h:(Data.List.init body)
+		snakeTiles = gs_snakeTiles state
+		foodTiles = gs_foodTiles state
+		advanceAllTiles snake holdCount 0 = snake
+		advanceAllTiles snake holdCount n =
+			advanceAllTiles (advanceTile snake holdCount) (holdCount - 1) (n - 1)
+		advanceTile (h@((x, y), _):body) holdCount =
+			case gs_nextDirection state of
+				DUp -> ((x, y - 1), True):h:(nextBody holdCount body)
+				DDown -> ((x, y + 1), True):h:(nextBody holdCount body)
+				DLeft -> ((x - 1, y), True):h:(nextBody holdCount body)
+				DRight -> ((x + 1, y), True):h:(nextBody holdCount body)
+		nextBody holdCount body =
+			if holdCount > 0 then body else Data.List.init body
+		
 
 data Animation = Animation {
 	surface :: Surface,
@@ -167,7 +179,7 @@ renderSnake dst frame state = do
 		getSprite = snd
 		-- offsets for rendering parts of the head, see renderHeadx
 		offset = gs_framesToAlignment state
-		offsetTail = 15 - offset
+		offsetTail = if (gs_holdCount state > 0) then 0 else 15 - offset
 		offset2 = offset + 3
 		offset3 = offset2 - 16
 		nHeadSprites = if offset3 < 0 ||
@@ -443,6 +455,7 @@ data GameState = GameState {
 	gs_nextDirection :: Direction,
 	gs_ttFrameSwap :: Integer,
 	gs_framesToAlignment :: Int,
+	gs_holdCount :: Int,
 	gs_snakeTiles :: [((Int, Int), Bool)],
 	gs_foodTiles :: Map.Map (Int, Int) Int,
 	gs_wallTiles :: Set.Set (Int, Int),
@@ -464,6 +477,7 @@ initGameState = do
 		gs_nextDirection = DUp,
 		gs_ttFrameSwap = 0,
 		gs_framesToAlignment = 15,
+		gs_holdCount = 0,
 		gs_snakeTiles = [],
 		gs_foodTiles = Map.empty,
 		gs_wallTiles = Set.empty,
@@ -540,6 +554,7 @@ loadLevel level state = do
 		gs_nextDirection = startDirection,
 		gs_ttFrameSwap = 0,
 		gs_framesToAlignment = 15,
+		gs_holdCount = 0,
 		gs_snakeTiles = snakeTiles,
 		gs_foodTiles = Map.fromList$ concatMap (\((x, y), sprite) ->
 			case sprite of
