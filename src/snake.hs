@@ -86,7 +86,7 @@ handleEvent (KeyDown sym) = do
 handleEvent _ = return True
 
 frameDelay :: Integer
-frameDelay = ((1::Integer) * 10^12) `div` 16
+frameDelay = ((1::Integer) * 10^12) `div` 32
 
 updateGame :: Integer -> GameState -> GameState
 updateGame delay state =
@@ -164,27 +164,28 @@ renderSnake dst frame state = do
 		getSprite = snd
 		-- offsets for rendering parts of the head, see renderHeadx
 		offset = gs_framesToAlignment state
+		offsetTail = 15 - offset
 		offset2 = offset + 3
-		offset3 = 3 - ((16 - offset) `mod` 16)
+		offset3 = offset2 - 16
 		nHeadSprites = if offset3 < 0 then 2 else 3
 		headAni = gfx Map.! (getSprite$head snakeSprites)
-		bodySprites = drop nHeadSprites snakeSprites
+		bodySprites = Data.List.init$ drop nHeadSprites snakeSprites
 		tailSprite = last snakeSprites
 
 	-- render head
-	let (render1, render2) = case head snakeSprites of
-		(_, HeadLeft) -> (renderLeft1, renderLeft2)
-		(_, HeadRight) -> (renderRight1, renderRight2)
-		(_, HeadUp) -> (renderUp1, renderUp2)
-		(_, HeadDown) -> (renderDown1, renderDown2)
+	let (render1, renderT1, render2) = case head snakeSprites of
+		(_, HeadLeft) -> (renderLeft1, renderLeft1, renderLeft2)
+		(_, HeadRight) -> (renderRight1, renderRightT1, renderRight2)
+		(_, HeadUp) -> (renderUp1, renderUp1, renderUp2)
+		(_, HeadDown) -> (renderDown1, renderDownT1, renderDown2)
 	if nHeadSprites == 2
 		then do
 			renderHead1 (head snakeSprites) offset render1
-			renderHead3 (head$ tail snakeSprites) headAni offset2 render1 render2
+			renderHead3 (head$ tail snakeSprites) headAni offset2 renderT1 render2
 		else do
 			renderHead1 (head snakeSprites) offset render1
 			renderHead2 (head$ tail snakeSprites) headAni offset2 render2
-			renderHead3 (head$ drop 2 snakeSprites) headAni offset3 render1 render2
+			renderHead3 (head$ drop 2 snakeSprites) headAni offset3 renderT1 render2
 
 	-- render body
 	mapM_ (\(((x, y), show), sprite) ->
@@ -193,16 +194,16 @@ renderSnake dst frame state = do
 	-- render tail
 	case tailSprite of
 		(((x, y), show), SnakeTHL) -> when show $ do
-			renderLeft1 (gfx Map.! SnakeTHL) 0 offset x y
+			renderLeft1 (gfx Map.! SnakeTHL) 0 offsetTail x y
 			return ()
 		(((x, y), show), SnakeTHR) -> when show $ do
-			renderRight1 (gfx Map.! SnakeTHL) 0 offset x y
+			renderRightT1 (gfx Map.! SnakeTHR) 0 offsetTail x y
 			return ()
 		(((x, y), show), SnakeTVU) -> when show $ do
-			renderUp1 (gfx Map.! SnakeTHL) 0 offset x y
+			renderUp1 (gfx Map.! SnakeTVU) 0 offsetTail x y
 			return ()
 		(((x, y), show), SnakeTVD) -> when show $ do
-			renderDown1 (gfx Map.! SnakeTHL) 0 offset x y
+			renderDownT1 (gfx Map.! SnakeTVD) 0 offsetTail x y
 			return ()
 
 	return ()
@@ -220,7 +221,7 @@ renderSnake dst frame state = do
 			when show $ if not$ elem sprite cornerSprites
 				then do
 					render2 headAni frame offset 16 x y
-					render1 (gfx Map.! sprite) 0 (15 - offset) x y
+					render1 (gfx Map.! sprite) 0 offset x y
 					return ()
 				else do
 					renderAnimation dst 0 x y (gfx Map.! sprite)
@@ -236,6 +237,10 @@ renderSnake dst frame state = do
 		renderRight1 src frame offset x y =
 			blitSurface (surface src)
 				(Just$ adjRect src frame $ Rect (offset + 3) 0 (16 - offset) 16)
+				dst (Just$ Rect x y 0 0)
+		renderRightT1 src frame offset x y =
+			blitSurface (surface src)
+				(Just$ adjRect src frame $ Rect offset 0 (16 - offset) 16)
 				dst (Just$ Rect x y 0 0)
 		renderRight2 src frame offset w x y =
 			blitSurface (surface src)
@@ -253,6 +258,10 @@ renderSnake dst frame state = do
 			blitSurface (surface src)
 				(Just$ adjRect src frame $ Rect 0 (offset + 3) 16 (16 - offset))
 				dst (Just$ Rect x y 0 0)
+		renderDownT1 src frame offset x y =
+			blitSurface (surface src)
+				(Just$ adjRect src frame $ Rect 0 offset 16 (16 - offset))
+				dst (Just$ Rect x y 0 0)
 		renderDown2 src frame offset h x y =
 			blitSurface (surface src)
 				(Just$ adjRect src frame $ Rect 0 (offset - h) 16 h)
@@ -264,8 +273,8 @@ renderSnake dst frame state = do
 inferSnakeSprites :: [(Int, Int)] -> [Sprite]
 inferSnakeSprites tiles =
 	(case (diffs$ take 2 tiles) of
-		[(0, 0), (1, 0)] -> HeadRight
-		[(0, 0), (-1, 0)] -> HeadLeft
+		[(0, 0), (1, 0)] -> HeadLeft
+		[(0, 0), (-1, 0)] -> HeadRight
 		[(0, 0), (0, 1)] -> HeadUp
 		[(0, 0), (0, -1)] -> HeadDown
 		x -> traceShow x (error "Invalid diffs for head")
@@ -491,10 +500,10 @@ loadLevel level state = do
 	let snakeTiles = map (\((dx, dy), visible) ->
 		(((fst inDoor) + dx, (snd inDoor) + dy), visible)) $
 			case startDirection of
-				DUp -> [((0, 0), True), ((0, 1), False), ((0, 2), False)]
-				DDown -> [((0, 0), True), ((0, -1), False), ((0, -2), False)]
-				DLeft -> [((0, 0), True), ((-1, 0), False), ((-2, 0), False)]
-				DRight -> [((0, 0), True), ((1, 0), False), ((2, 0), False)]
+				DUp -> [((0, 0), True), ((0, 1), False), ((0, 2), False), ((0, 3), False)]
+				DDown -> [((0, 0), True), ((0, -1), False), ((0, -2), False), ((0, -3), False)]
+				DLeft -> [((0, 0), True), ((-1, 0), False), ((-2, 0), False), ((-3, 0), False)]
+				DRight -> [((0, 0), True), ((1, 0), False), ((2, 0), False), ((3, 0), False)]
 	
 	-- Initialise the state
 	return$ state {
