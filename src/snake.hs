@@ -99,6 +99,9 @@ updateGame delay state =
 			then offset' `mod` 16 else offset'
 		advanceTiles = if offset' < 0
 			then ((abs offset') `div` 16) + 1 else 0
+		eatenApple =
+			if advanceTiles > 0 && (Map.member (fst$head snakeTiles) foodTiles)
+				then Just$ foodTiles Map.! (fst$head snakeTiles) else Nothing
 	in
 		state {
 			gs_framesToAlignment = framesToAlignment,
@@ -106,11 +109,13 @@ updateGame delay state =
 				then frameDelay + (anidiff `mod` frameDelay)
 				else anidiff,
 			gs_holdCount =
-				(max 0 (gs_holdCount state - advanceTiles)) +
-				if advanceTiles > 0 && (Map.member (fst$head snakeTiles) foodTiles)
-					then foodTiles Map.! (fst$head snakeTiles) else 0,
+				(max 0 (gs_holdCount state - advanceTiles)) + (fromMaybe 0 eatenApple),
 			gs_snakeTiles =
-				advanceAllTiles snakeTiles (gs_holdCount state) advanceTiles
+				advanceAllTiles snakeTiles (gs_holdCount state) advanceTiles,
+			gs_foodTiles = if isJust eatenApple
+				then Map.delete (fst$head snakeTiles) foodTiles
+				else foodTiles,
+			gs_score = (gs_score state) + (fromMaybe 0 eatenApple)
 		}
 	where
 		snakeTiles = gs_snakeTiles state
@@ -161,8 +166,19 @@ renderFrame state = do
 		if Map.member (fst$head$ gs_snakeTiles state) (gs_foodTiles state)
 			then ((15 - (gs_framesToAlignment state) + 5) `mod` 16) else 4
 	display <- getVideoSurface
+
 	blitSurface (gs_wallStamp state) Nothing display (Just$ Rect 0 0 0 0)
 	renderAnimation display 0 480 0 (gfx Map.! SidePanel)
+
+	-- render food
+	let foodTiles = gs_foodTiles state
+	mapM_ (\(x, y) ->
+			renderAnimation display 0 (x * 16) (y * 16)
+				(gfx Map.! (case foodTiles Map.! (x, y) of
+					1 -> AppleA
+					5 -> AppleB))
+		) (Map.keys foodTiles)
+
 	renderSnake display frame state
 	Graphics.UI.SDL.flip display
 	return ()
@@ -530,11 +546,11 @@ loadLevel level state = do
 	let
 		wallStamp = gs_wallStamp state
 		gfx = gs_gfx state
+		noRenderSprites = [DoorInH, DoorInV, DoorOutH, DoorOutV, AppleA, AppleB]
 	fillRect wallStamp (Just$ Rect 0 0 480 480) (Pixel 0x00000000)
 	mapM_ (\((x, y), sprite) ->
 		renderAnimation wallStamp 0 (x * 16) (y * 16) (gfx Map.! sprite))
-		(filter (\(pos, sprite) ->
-			not$elem sprite [DoorInH, DoorInV, DoorOutH, DoorOutV]) levelMap)
+		(filter (\(pos, sprite) -> not$elem sprite noRenderSprites) levelMap)
 	
 	-- Prepare the doors
 	let inDoor = fst$ fromJust$ find
