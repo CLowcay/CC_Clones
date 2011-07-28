@@ -166,10 +166,10 @@ loadLevel level state = do
 				WallTVU, WallTVD, WallTHL, WallTHR, WallDot,
 				WallXR, WallXL, WallXU, WallXD, WallX])
 				then [cell] else []) levelMap,
-		gs_in_door = (fst inDoor, snd inDoor, True),
-		gs_in_door_tile = snd$ fromJust$ find isInDoorTile levelMap,
-		gs_out_door = (fst outDoor, snd outDoor, False),
-		gs_out_door_tile = snd$ fromJust$ find isOutDoorTile levelMap,
+		gs_inDoor = (fst inDoor, snd inDoor, True),
+		gs_inDoorTile = snd$ fromJust$ find isInDoorTile levelMap,
+		gs_outDoor = (fst outDoor, snd outDoor, False),
+		gs_outDoorTile = snd$ fromJust$ find isOutDoorTile levelMap,
 		gs_level = level,
 		gs_levelCounter = setCounter level (gs_levelCounter state)
 	}
