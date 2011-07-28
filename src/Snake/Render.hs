@@ -20,7 +20,7 @@ renderFrame state = do
 	blitSurface (gs_wallStamp state) Nothing display (Just$ Rect 0 0 0 0)
 
 	-- render the side panel
-	--renderCounter (23 + 480) 172 (gs_levelCounter state)
+	renderCounter (23 + 480) 172 (gs_levelCounter state)
 	renderCounter (84 + 480) 172 (gs_scoreCounter state)
 	renderAnimation display 0 480 0 (gfx Map.! SidePanel)
 

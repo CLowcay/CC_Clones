@@ -30,7 +30,7 @@ loadSprites = do
 	let
 		tileAnimation Digits = Animation {
 		 	surface = digits,
-		 	frames = listArray (0, 0) [Rect 0 0 20 198]}
+		 	frames = listArray (0, 0) [Rect 0 0 20 180]}
 		tileAnimation Paused = Animation {
 		 	surface = paused,
 		 	frames = listArray (0, 0) [Rect 0 0 234 160]}

@@ -15,7 +15,8 @@ data CounterState = CounterState {
 	cs_target :: Int,
 	cs_ttFrameSwap :: Integer,
 	cs_framesToAlignment :: Int,
-	cs_nDigits :: Int
+	cs_nDigits :: Int,
+	cs_changedDigits :: [Bool]
 } deriving (Show)
 
 -- Initialise a new CounterState
@@ -24,7 +25,8 @@ initCounter digits nDigits = CounterState {
 	cs_digits = digits,
 	cs_display = 0, cs_target = 0,
 	cs_ttFrameSwap = 0, cs_framesToAlignment = 0,
-	cs_nDigits = nDigits
+	cs_nDigits = nDigits,
+	cs_changedDigits = take nDigits $ repeat False
 }
 
 -- The delay for counter frames, in picoseconds
@@ -38,24 +40,34 @@ updateCounter delay state =
 		anidiff = (cs_ttFrameSwap state) - delay
 		advanceFrames = fromInteger$ if anidiff < 0
 			then ((abs anidiff) `div` frameDelay) + 1 else 0
-		offset' = (cs_framesToAlignment state) - advanceFrames
-		framesToAlignment = if offset' < 0
+		offset' = framesToAlignment - advanceFrames
+		framesToAlignment' = if offset' < 0
 			then offset' `mod` 18 else offset'
 		advanceDigits = if offset' < 0
 			then ((abs offset') `div` 18) + 1 else 0
-	in traceShow (target, display) $ state {
+		display' = if target > display
+			then min target (display + advanceDigits)
+			else if target < display
+				then max target (display - advanceDigits)
+				else display
+	in state {
 		cs_framesToAlignment =
-			if target == display then 0 else framesToAlignment,
+			if target == display && framesToAlignment == 0
+				then 0 else framesToAlignment',
 		cs_ttFrameSwap = if anidiff < 0
 			then frameDelay + (anidiff `mod` frameDelay)
 			else anidiff,
-		cs_display = if target > display
-			then max target (display + advanceDigits)
-			else if target < display
-				then min target (display - advanceDigits)
-				else display
+		cs_display = display',
+		cs_changedDigits = if framesToAlignment' > framesToAlignment
+			then map
+				(\(a, b) -> a /= b) $ zip
+					(adjLength nDigits$ toDec display)
+					(adjLength nDigits$ toDec display')
+			else cs_changedDigits state
 	}
 	where
+		framesToAlignment = cs_framesToAlignment state
+		nDigits = cs_nDigits state
 		target = cs_target state
 		display = cs_display state
 
@@ -84,14 +96,16 @@ renderCounter x y state = do
 		framesToAlignment = cs_framesToAlignment state
 		nDigits = cs_nDigits state
 		digits = adjLength nDigits $ toDec$ cs_display state
+		changedDigits = cs_changedDigits state
 	display <- getVideoSurface
 	mapM_ (\(iDigit, offset) -> do
 			renderAnimationLoopV display 0
 				(x + (iDigit * 20)) y offset (cs_digits state)
 		)$ zip
 			(reverse [0..(nDigits - 1)])
-			(map (\d -> (d * 18) - framesToAlignment) digits)
-	putStrLn$ ""
+			(map (\(changed, d) ->
+					((d * 18) - (if changed then framesToAlignment else 0)) `mod` 180
+				) (zip changedDigits digits))
 	return ()
 	
 -- Adjust a list to a specified length

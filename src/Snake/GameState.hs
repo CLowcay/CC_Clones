@@ -54,7 +54,7 @@ appleValuesR = Map.fromList [(1, AppleA), (5, AppleB)]
 
 -- The delay for snake frames, in picoseconds
 frameDelay :: Integer
-frameDelay = ((1::Integer) * 10^12) `div` 32
+frameDelay = ((1::Integer) * 10^12) `div` 64
 
 -- Update the game state based on a time delta
 updateGame :: Integer -> GameState -> GameState

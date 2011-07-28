@@ -46,7 +46,7 @@ initGameState = do
 		gs_wallCells = Set.empty,
 		gs_in_door = (0, 0, False),
 		gs_out_door = (0, 0, False),
-		gs_score = 0, gs_scoreCounter = initCounter (gfx Map.! Digits) 4,
+		gs_score = 0, gs_scoreCounter = initCounter (gfx Map.! Digits) 5,
 		gs_level = 0, gs_levelCounter = initCounter (gfx Map.! Digits) 2
 	}
 
