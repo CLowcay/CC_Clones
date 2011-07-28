@@ -49,7 +49,8 @@ initGameState = do
 		gs_out_door = (0, 0, False),
 		gs_out_door_tile = DoorOutV,
 		gs_score = 0, gs_scoreCounter = initCounter (gfx Map.! Digits) 5,
-		gs_level = 0, gs_levelCounter = initCounter (gfx Map.! Digits) 2
+		gs_level = 0, gs_levelCounter = initCounter (gfx Map.! Digits) 2,
+		gs_gameOver = False, gs_paused = False
 	}
 
 mainLoop :: ClockTime -> GameState -> IO ()
