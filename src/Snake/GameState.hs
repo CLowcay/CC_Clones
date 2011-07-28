@@ -34,6 +34,7 @@ data GameState = GameState {
 	gs_outDoor :: (Int, Int, Bool),
 	gs_outDoorTile :: Tile,
 	gs_score :: Int, gs_scoreCounter :: CounterState,
+	gs_loadLevel :: Bool, -- set to true if the level must be reloaded
 	gs_level :: Int, gs_levelCounter :: CounterState,
 	gs_gameOver :: Bool, gs_paused :: Bool
 } deriving (Show)
@@ -61,6 +62,8 @@ frameDelay = ((1::Integer) * 10^12) `div` 64
 
 -- Update the game state based on a time delta
 updateGame :: Integer -> GameState -> GameState
+updateGame _ (state@(GameState {gs_gameOver = True})) = state
+updateGame _ (state@(GameState {gs_paused = True})) = state
 updateGame delay state =
 	let
 		anidiff = (gs_ttFrameSwap state) - delay

@@ -1,5 +1,6 @@
 module Snake.Events where
 
+import Common.Counters
 import Control.Monad.State
 import Graphics.UI.SDL
 import Snake.GameState
@@ -43,6 +44,16 @@ handleEvent (KeyDown sym) = do
 			put$state {gs_nextDirection = DRight}
 			return True
 		SDLK_ESCAPE -> return False
+		SDLK_F5 -> do
+			put$state {gs_paused = not$ gs_paused state}
+			return True
+		SDLK_F2 -> do
+			put$state {
+				gs_levelCounter = resetCounter 0 (gs_levelCounter state),
+				gs_scoreCounter = resetCounter 0 (gs_scoreCounter state),
+				gs_level = 1, gs_loadLevel = True, gs_score = 0,
+				gs_paused = False, gs_gameOver = False}
+			return True
 		_ -> return True
 handleEvent _ = return True
 

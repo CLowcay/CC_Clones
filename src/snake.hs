@@ -49,19 +49,24 @@ initGameState = do
 		gs_outDoor = (0, 0, False),
 		gs_outDoorTile = DoorOutV,
 		gs_score = 0, gs_scoreCounter = initCounter (gfx Map.! Digits) 5,
+		gs_loadLevel = False,
 		gs_level = 0, gs_levelCounter = initCounter (gfx Map.! Digits) 2,
 		gs_gameOver = False, gs_paused = False
 	}
 
 mainLoop :: ClockTime -> GameState -> IO ()
-mainLoop time0 state = do
-	renderFrame state
+mainLoop time0 state0 = do
+	renderFrame state0
 
 	time1 <- getClockTime
 	let delay = clockTimeDiff time0 time1
 
 	events <- pollAllEvents
-	let (continue, state') = runState (handleAllEvents events) state
-	let state'' = updateGame delay state'
-	if continue then mainLoop time1 state'' else return ()
+	let (continue, state1) = runState (handleAllEvents events) state0
+	state1' <- if gs_loadLevel state1
+		then loadLevel (gs_level state1) state1 else return state1
+	let state2 = updateGame delay state1'
+	state2' <- if gs_loadLevel state1
+		then loadLevel (gs_level state2) state2 else return state2
+	if continue then mainLoop time1 state2' else return ()
 

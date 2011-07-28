@@ -170,6 +170,7 @@ loadLevel level state = do
 		gs_inDoorTile = snd$ fromJust$ find isInDoorTile levelMap,
 		gs_outDoor = (fst outDoor, snd outDoor, False),
 		gs_outDoorTile = snd$ fromJust$ find isOutDoorTile levelMap,
+		gs_loadLevel = False,
 		gs_level = level,
 		gs_levelCounter = setCounter level (gs_levelCounter state)
 	}

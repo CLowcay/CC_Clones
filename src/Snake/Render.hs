@@ -40,6 +40,10 @@ renderFrame state = do
 		) (Map.keys foodCells)
 
 	renderSnake display frame state
+
+	-- UI elements
+	when (gs_paused state) $ do
+		renderAnimation display 0 123 160 (gfx Map.! Paused)
 	Graphics.UI.SDL.flip display
 	return ()
 
