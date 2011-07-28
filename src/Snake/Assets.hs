@@ -1,5 +1,6 @@
 module Snake.Assets where
 
+import Common.Counters
 import Common.Graphics
 import Common.Util
 import Data.Array
@@ -167,7 +168,8 @@ loadLevel level state = do
 				then [cell] else []) levelMap,
 		gs_in_door = (fst inDoor, snd inDoor, True),
 		gs_out_door = (fst outDoor, snd outDoor, False),
-		gs_level = level
+		gs_level = level,
+		gs_levelCounter = setCounter level (gs_levelCounter state)
 	}
 
 makeAnimation :: Surface -> Int -> Int -> Int -> Int -> Animation

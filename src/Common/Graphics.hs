@@ -28,6 +28,6 @@ renderAnimationLoopV dst frame x y offset animation = do
 		dst (Just$ Rect x y 0 0)
 	blitSurface
 		(surface animation) (Just$ srect {rectH = offset})
-		dst (Just$ Rect x (rectH srect - offset) 0 0)
+		dst (Just$ Rect x (y + (rectH srect - offset)) 0 0)
 	return ()
 

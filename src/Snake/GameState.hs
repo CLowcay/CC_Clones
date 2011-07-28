@@ -1,5 +1,12 @@
-module Snake.GameState where
+module Snake.GameState (
+	Direction(..),
+	GameState(..),
+	Tile(..), allTiles,
+	appleValues, appleValuesR,
+	updateGame, inferSnakeTiles
+) where
 
+import Common.Counters
 import Common.Graphics
 import Common.Util
 import Data.List
@@ -24,8 +31,8 @@ data GameState = GameState {
 	gs_wallCells :: Set.Set (Int, Int),
 	gs_in_door :: (Int, Int, Bool),
 	gs_out_door :: (Int, Int, Bool),
-	gs_score :: Int,
-	gs_level :: Int
+	gs_score :: Int, gs_scoreCounter :: CounterState,
+	gs_level :: Int, gs_levelCounter :: CounterState
 } deriving (Show)
 
 data Tile = Digits | Paused | SidePanel |
@@ -64,6 +71,8 @@ updateGame delay state =
 		eatenApple =
 			if advanceCells > 0 && (Map.member (fst$head snakeCells) foodCells)
 				then Just$ foodCells Map.! (fst$head snakeCells) else Nothing
+		scoreCounter = 
+			addCounter (fromMaybe 0 eatenApple) (gs_scoreCounter state)
 	in
 		state {
 			gs_framesToAlignment = framesToAlignment,
@@ -77,7 +86,9 @@ updateGame delay state =
 			gs_foodCells = if isJust eatenApple
 				then Map.delete (fst$head snakeCells) foodCells
 				else foodCells,
-			gs_score = (gs_score state) + (fromMaybe 0 eatenApple)
+			gs_score = (gs_score state) + (fromMaybe 0 eatenApple),
+			gs_scoreCounter = updateCounter delay scoreCounter,
+			gs_levelCounter = updateCounter delay (gs_levelCounter state)
 		}
 	where
 		snakeCells = gs_snakeCells state
