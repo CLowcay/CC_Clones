@@ -138,10 +138,10 @@ loadLevel level state = do
 		(filter (\(_, tile) -> not$elem tile noRenderSprites) levelMap)
 	
 	-- Prepare the doors
-	let inDoor = fst$ fromJust$ find
-		(\(_, tile) -> tile == DoorInH || tile == DoorInV) levelMap
-	let outDoor = fst$ fromJust$ find
-		(\(_, tile) -> tile == DoorOutH || tile == DoorOutV) levelMap
+	let isInDoorTile = (\(_, tile) -> tile == DoorInH || tile == DoorInV)
+	let isOutDoorTile = (\(_, tile) -> tile == DoorOutH || tile == DoorOutV)
+	let inDoor = fst$ fromJust$ find isInDoorTile levelMap
+	let outDoor = fst$ fromJust$ find isOutDoorTile levelMap
 	let snakeCells = map (\((dx, dy), visible) ->
 		(((fst inDoor) + dx, (snd inDoor) + dy), visible)) $
 			case startDirection of
@@ -167,7 +167,9 @@ loadLevel level state = do
 				WallXR, WallXL, WallXU, WallXD, WallX])
 				then [cell] else []) levelMap,
 		gs_in_door = (fst inDoor, snd inDoor, True),
+		gs_in_door_tile = snd$ fromJust$ find isInDoorTile levelMap,
 		gs_out_door = (fst outDoor, snd outDoor, False),
+		gs_out_door_tile = snd$ fromJust$ find isOutDoorTile levelMap,
 		gs_level = level,
 		gs_levelCounter = setCounter level (gs_levelCounter state)
 	}

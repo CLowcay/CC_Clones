@@ -30,7 +30,9 @@ data GameState = GameState {
 	gs_foodCells :: Map.Map (Int, Int) Int,
 	gs_wallCells :: Set.Set (Int, Int),
 	gs_in_door :: (Int, Int, Bool),
+	gs_in_door_tile :: Tile,
 	gs_out_door :: (Int, Int, Bool),
+	gs_out_door_tile :: Tile,
 	gs_score :: Int, gs_scoreCounter :: CounterState,
 	gs_level :: Int, gs_levelCounter :: CounterState
 } deriving (Show)

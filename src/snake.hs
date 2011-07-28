@@ -45,7 +45,9 @@ initGameState = do
 		gs_foodCells = Map.empty,
 		gs_wallCells = Set.empty,
 		gs_in_door = (0, 0, False),
+		gs_in_door_tile = DoorInV,
 		gs_out_door = (0, 0, False),
+		gs_out_door_tile = DoorOutV,
 		gs_score = 0, gs_scoreCounter = initCounter (gfx Map.! Digits) 5,
 		gs_level = 0, gs_levelCounter = initCounter (gfx Map.! Digits) 2
 	}

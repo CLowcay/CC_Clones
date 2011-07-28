@@ -18,6 +18,12 @@ renderFrame state = do
 	display <- getVideoSurface
 
 	blitSurface (gs_wallStamp state) Nothing display (Just$ Rect 0 0 0 0)
+	let (x, y, open) = gs_in_door state in when (not open) $
+		renderAnimation display 0 (x * 16) (y * 16)
+			(gfx Map.! (gs_in_door_tile state))
+	let (x, y, open) = gs_out_door state in when (not open) $
+		renderAnimation display 0 (x * 16) (y * 16)
+			(gfx Map.! (gs_out_door_tile state))
 
 	-- render the side panel
 	renderCounter (23 + 480) 172 (gs_levelCounter state)
