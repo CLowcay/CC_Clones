@@ -1,5 +1,6 @@
 module Snake.GameState where
 
+import Common.Graphics
 import Common.Util
 import Data.List
 import Data.Maybe
@@ -7,7 +8,6 @@ import Debug.Trace
 import Graphics.UI.SDL
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import Snake.Graphics
 
 data Direction = DLeft | DRight | DUp | DDown deriving (Enum, Eq, Ord, Show)
 

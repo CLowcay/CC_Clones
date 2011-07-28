@@ -1,5 +1,6 @@
 module Main where
 
+import Common.Graphics
 import Common.Util
 import Control.Monad.State
 import Graphics.UI.SDL
@@ -8,7 +9,6 @@ import qualified Data.Set as Set
 import Snake.Assets
 import Snake.Events
 import Snake.GameState
-import Snake.Graphics
 import Snake.Render
 import Time
 

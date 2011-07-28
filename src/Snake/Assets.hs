@@ -1,5 +1,6 @@
 module Snake.Assets where
 
+import Common.Graphics
 import Common.Util
 import Data.Array
 import Data.List
@@ -8,7 +9,6 @@ import Graphics.UI.SDL
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Snake.GameState
-import Snake.Graphics
 
 loadSprites :: IO (Map.Map Tile Animation)
 loadSprites = do

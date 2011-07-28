@@ -1,4 +1,4 @@
-module Snake.Graphics where
+module Common.Graphics where
 
 import Data.Array
 import Graphics.UI.SDL

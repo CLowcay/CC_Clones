@@ -1,11 +1,11 @@
 module Snake.Render where
 
+import Common.Graphics
 import Control.Monad
 import Data.Array
 import Graphics.UI.SDL
 import qualified Data.Map as Map
 import Snake.GameState
-import Snake.Graphics
 
 -- Render a frame
 renderFrame :: GameState -> IO ()
