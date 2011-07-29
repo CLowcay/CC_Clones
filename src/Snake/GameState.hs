@@ -135,13 +135,13 @@ updateGame delay state =
 				(not$any (\(scell, _) -> cell == scell) snakeCells)
 		-- Hide snake cells that have passed through the exit
 		hideExitedCells (x, y, _) snake =
-			reverse (hideExitedCells0 (reverse snake) False)
+			reverse (hideExitedCells0 (reverse snake) False True)
 			where
-				hideExitedCells0 [] passed = []
-				hideExitedCells0 (((cx, cy), visible):cells) passed =
+				hideExitedCells0 [] passed isTail = []
+				hideExitedCells0 (((cx, cy), visible):cells) passed isTail =
 					let passed' = ((cx == x && cy == y) || passed) in
-						((cx, cy), visible && (not passed')):
-							(hideExitedCells0 cells passed')
+						((cx, cy), visible && (not (if isTail then passed' else passed))):
+							(hideExitedCells0 cells passed' False)
 		-- Advance the snake multiple cells
 		advanceAllCells snake holdCount 0 = snake
 		advanceAllCells snake holdCount n =
