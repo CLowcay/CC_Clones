@@ -83,7 +83,7 @@ renderSnake dst frame state = do
 			renderHead3 (head$ drop 2 snakeTiles) headAni offset3 renderT1 render2
 
 	-- render body
-	mapM_ (\(((x, y), show), tile) ->
+	mapM_ (\(((x, y), show), tile) -> when show $
 		renderAnimation dst 0 x y (gfx Map.! tile)) bodyTiles
 
 	-- render tail
