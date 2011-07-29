@@ -145,10 +145,10 @@ loadLevel level state = do
 	let snakeCells = map (\((dx, dy), visible) ->
 		(((fst inDoor) + dx, (snd inDoor) + dy), visible)) $
 			case startDirection of
-				DUp -> map (\i -> ((0, i), i == 0)) [0..4]
-				DDown -> map (\i -> ((0, -i), i == 0)) [0..4]
-				DLeft -> map (\i -> ((-i, 0), i == 0)) [0..4]
-				DRight -> map (\i -> ((i, 0), i == 0)) [0..4]
+				DUp -> map (\i -> ((0, i), i == 0)) [0..(4 + (2 * level))]
+				DDown -> map (\i -> ((0, -i), i == 0)) [0..(4 + (2 * level))]
+				DLeft -> map (\i -> ((-i, 0), i == 0)) [0..(4 + (2 * level))]
+				DRight -> map (\i -> ((i, 0), i == 0)) [0..(4 + (2 * level))]
 	
 	-- Initialise the state
 	return$ state {
