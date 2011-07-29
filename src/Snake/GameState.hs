@@ -80,14 +80,18 @@ updateGame delay state =
 		scoreCounter = 
 			addCounter (fromMaybe 0 eatenApple) (gs_scoreCounter state)
 		snakeCells' =
-			advanceAllCells snakeCells (gs_holdCount state) advanceCells
+			hideExitedCells outDoor $
+				advanceAllCells snakeCells (gs_holdCount state) advanceCells
+		level = if (isOpen outDoor') && (all (not.snd) snakeCells)
+			then (gs_level state) + 1 else (gs_level state)
+		levelCounter = setCounter level (gs_levelCounter state)
 		foodCells' = if isJust eatenApple
 			then Map.delete (fst$head snakeCells) foodCells
 			else foodCells
 		inDoor' = if ((not$snd$last snakeCells) && (snd$last snakeCells'))
-			then closeDoor (gs_inDoor state) else (gs_inDoor state)
+			then closeDoor inDoor else inDoor
 		outDoor' = if Map.size foodCells' == 0
-			then openDoor (gs_outDoor state) else (gs_outDoor state)
+			then openDoor outDoor else outDoor
 	in
 		state {
 			gs_framesToAlignment = framesToAlignment,
@@ -101,16 +105,24 @@ updateGame delay state =
 			gs_foodCells = foodCells',
 			gs_score = (gs_score state) + (fromMaybe 0 eatenApple),
 			gs_scoreCounter = updateCounter delay scoreCounter,
-			gs_levelCounter = updateCounter delay (gs_levelCounter state),
-			gs_gameOver = if not$allClear inDoor' outDoor' advanceCells
+			gs_levelCounter = updateCounter delay levelCounter,
+			gs_level = level,
+			gs_loadLevel = level /= (gs_level state),
+			gs_gameOver =
+				if (snd$head snakeCells') &&
+					(not$allClear inDoor' outDoor' advanceCells)
 				then True else gs_gameOver state
 		}
 	where
 		snakeCells = gs_snakeCells state
 		foodCells = gs_foodCells state
+		inDoor = gs_inDoor state
+		outDoor = gs_outDoor state
+		-- Are all the cells we pass over clear of obstructions
 		allClear inDoor' outDoor' advance = all (\a ->
 				isClear (head snakeCells) inDoor' outDoor' a
 			) [1 .. advance]
+		-- Is a cell clear of obstruction
 		isClear ((x, y), _) inDoor' outDoor' advance =
 			let cell = case gs_nextDirection state of
 				DUp -> (x, y - advance)
@@ -121,19 +133,33 @@ updateGame delay state =
 				(not$inDoor' == (fst cell, snd cell, False)) &&
 				(not$outDoor' == (fst cell, snd cell, False)) &&
 				(not$any (\(scell, _) -> cell == scell) snakeCells)
+		-- Hide snake cells that have passed through the exit
+		hideExitedCells (x, y, _) snake =
+			reverse (hideExitedCells0 (reverse snake) False)
+			where
+				hideExitedCells0 [] passed = []
+				hideExitedCells0 (((cx, cy), visible):cells) passed =
+					let passed' = ((cx == x && cy == y) || passed) in
+						((cx, cy), visible && (not passed')):
+							(hideExitedCells0 cells passed')
+		-- Advance the snake multiple cells
 		advanceAllCells snake holdCount 0 = snake
 		advanceAllCells snake holdCount n =
 			advanceAllCells (advanceCell snake holdCount) (holdCount - 1) (n - 1)
+		-- Advance the snake a single cell
 		advanceCell (h@((x, y), _):body) holdCount =
 			case gs_nextDirection state of
 				DUp -> ((x, y - 1), True):h:(nextBody holdCount body)
 				DDown -> ((x, y + 1), True):h:(nextBody holdCount body)
 				DLeft -> ((x - 1, y), True):h:(nextBody holdCount body)
 				DRight -> ((x + 1, y), True):h:(nextBody holdCount body)
+		-- Get the next body of the snake, accounting for growth
 		nextBody holdCount body =
 			if holdCount > 0 then body else Data.List.init body
+		-- Open and close doors
 		openDoor door = let (x, y, _) = door in (x, y, True)
 		closeDoor door = let (x, y, _) = door in (x, y, False)
+		isOpen (_, _, open) = open
 
 -- Infer the tile to use for each cell in the snake, based on the
 -- surrounding cells
