@@ -7,9 +7,16 @@ import Data.Array
 import Data.List
 import Data.Maybe
 import Graphics.UI.SDL
+import Graphics.UI.SDL.Mixer
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Snake.GameState
+
+loadSounds :: IO (Map.Map Sfx Chunk)
+loadSounds = do
+	chomp <- loadWAV$ getAssetPath "sfx/chomp.wav"
+	bump <- loadWAV$ getAssetPath "sfx/bump.wav"
+	return$ Map.fromList$ [(Chomp, chomp), (Bump, bump)]
 
 loadSprites :: IO (Map.Map Tile Animation)
 loadSprites = do

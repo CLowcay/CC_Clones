@@ -2,6 +2,7 @@ module Snake.GameState (
 	Direction(..),
 	GameState(..),
 	Tile(..), allTiles,
+	Sfx(..), Channels(..),
 	appleValues, appleValuesR,
 	updateGame, inferSnakeTiles
 ) where
@@ -13,6 +14,7 @@ import Data.List
 import Data.Maybe
 import Debug.Trace
 import Graphics.UI.SDL
+import Graphics.UI.SDL.Mixer
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
@@ -21,6 +23,7 @@ data Direction = DLeft | DRight | DUp | DDown deriving (Enum, Eq, Ord, Show)
 -- The complete state of the game at any point in time
 data GameState = GameState {
 	gs_gfx :: Map.Map Tile Animation,
+	gs_sfx :: Map.Map Sfx Chunk,
 	gs_wallStamp :: Surface,
 	gs_nextDirection :: Direction,
 	gs_ttFrameSwap :: Integer,
@@ -35,7 +38,8 @@ data GameState = GameState {
 	gs_outDoor :: (Int, Int, Bool),
 	gs_outDoorTile :: Tile,
 	gs_score :: Int, gs_scoreCounter :: CounterState,
-	gs_loadLevel :: Bool, -- set to true if the level must be reloaded
+	gs_loadLevel :: Bool,    -- set to true if the level must be reloaded
+	gs_sfxEvents :: [(Sfx, Channels)],  -- sounds to be played after rendering
 	gs_level :: Int, gs_levelCounter :: CounterState,
 	gs_gameOver :: Bool, gs_paused :: Bool
 } deriving (Show)
@@ -51,6 +55,12 @@ data Tile = Digits | Paused | SidePanel |
 	deriving (Enum, Ord, Eq, Show)
 allTiles = enumFrom Digits   -- A list of all the tiles
 
+data Sfx = Chomp | Bump
+	deriving (Enum, Ord, Eq, Show)
+
+data Channels = SfxChannel1 | SfxChannel2 | ChannelCount
+	deriving (Enum, Ord, Eq, Show)
+
 -- Values of the food tiles
 appleValues :: Map.Map Tile Int
 appleValues = Map.fromList [(AppleA, 1), (AppleB, 5)]
@@ -65,7 +75,8 @@ getFrameDelay level fastMode = ((1::Integer) * 10^12) `div` divisor
 
 -- Update the game state based on a time delta
 updateGame :: Integer -> GameState -> GameState
-updateGame _ (state@(GameState {gs_gameOver = True})) = state
+updateGame _ (state@(GameState {gs_gameOver = True})) =
+	state {gs_sfxEvents = []}
 updateGame _ (state@(GameState {gs_paused = True})) = state
 updateGame delay state =
 	let
@@ -95,6 +106,10 @@ updateGame delay state =
 			then closeDoor inDoor else inDoor
 		outDoor' = if Map.size foodCells' == 0
 			then openDoor outDoor else outDoor
+		gameOver' = 
+			if (snd$head snakeCells') &&
+				(not$allClear inDoor' outDoor' advanceCells)
+			then True else gameOver
 	in
 		state {
 			gs_framesToAlignment = framesToAlignment,
@@ -111,17 +126,20 @@ updateGame delay state =
 			gs_levelCounter = updateCounter delay levelCounter,
 			gs_level = level,
 			gs_loadLevel = level /= (gs_level state),
-			gs_gameOver =
-				if (snd$head snakeCells') &&
-					(not$allClear inDoor' outDoor' advanceCells)
-				then True else gs_gameOver state
+			gs_gameOver = gameOver',
+			gs_sfxEvents = concat [
+				(if gameOver' && (not gameOver) then [(Bump, SfxChannel2)] else []),
+				(if isJust eatenApple then [(Chomp, SfxChannel1)] else [])
+			]
 		}
 	where
+		sfx = gs_sfx state
 		frameDelay = getFrameDelay (gs_level state) (gs_fastMode state)
 		snakeCells = gs_snakeCells state
 		foodCells = gs_foodCells state
 		inDoor = gs_inDoor state
 		outDoor = gs_outDoor state
+		gameOver = gs_gameOver state
 		-- Are all the cells we pass over clear of obstructions
 		allClear inDoor' outDoor' advance = all (\a ->
 				isClear (head snakeCells) inDoor' outDoor' a
