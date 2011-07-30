@@ -1,5 +1,6 @@
 module Common.UserData where
 
+import System.Directory
 import System.FilePath
 import System.Posix.User
 

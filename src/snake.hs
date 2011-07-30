@@ -3,6 +3,7 @@ module Main where
 import Common.Counters
 import Common.Events
 import Common.Graphics
+import Common.HighScores
 import Common.Util
 import Control.Monad
 import Control.Monad.State
@@ -42,9 +43,11 @@ initGameState = do
 	wallStamp <- (createRGBSurface [HWSurface] 480 480 32
 		0x000000FF 0x0000FF00 0x00FF0000 0xFF000000) >>= displayFormat
 	sfx <- loadSounds
+	highScores <- loadHighScoreTable
 
 	return$ GameState {
 		gs_gfx = gfx, gs_sfx = sfx,
+		gs_highScores = highScores,
 		gs_wallStamp = wallStamp,
 		gs_nextDirection = DUp, gs_currentDirection = DUp,
 		gs_ttFrameSwap = 0,

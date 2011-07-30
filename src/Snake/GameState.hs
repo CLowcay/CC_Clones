@@ -8,6 +8,7 @@ module Snake.GameState (
 
 import Common.Counters
 import Common.Graphics
+import Common.HighScores
 import Common.Util
 import Data.List
 import Data.Maybe
@@ -23,6 +24,7 @@ data Direction = DLeft | DRight | DUp | DDown deriving (Enum, Eq, Ord, Show)
 data GameState = GameState {
 	gs_gfx :: Map.Map Tile Animation,
 	gs_sfx :: Map.Map Sfx Chunk,
+	gs_highScores :: HighScoreState,
 	gs_wallStamp :: Surface,
 	gs_nextDirection :: Direction,
 	gs_currentDirection :: Direction,
