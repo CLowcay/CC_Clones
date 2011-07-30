@@ -24,6 +24,7 @@ data GameState = GameState {
 	gs_wallStamp :: Surface,
 	gs_nextDirection :: Direction,
 	gs_ttFrameSwap :: Integer,
+	gs_fastMode :: Bool,
 	gs_framesToAlignment :: Int,
 	gs_holdCount :: Int,
 	gs_snakeCells :: [((Int, Int), Bool)],
@@ -57,8 +58,10 @@ appleValuesR :: Map.Map Int Tile
 appleValuesR = Map.fromList [(1, AppleA), (5, AppleB)]
 
 -- The delay for snake frames, in picoseconds
-frameDelay :: Integer
-frameDelay = ((1::Integer) * 10^12) `div` 64
+getFrameDelay :: Int -> Bool -> Integer
+getFrameDelay level fastMode = ((1::Integer) * 10^12) `div` divisor
+	where divisor =
+		(((fromIntegral level) * 16) + 16) * (if fastMode then 4 else 1)
 
 -- Update the game state based on a time delta
 updateGame :: Integer -> GameState -> GameState
@@ -114,6 +117,7 @@ updateGame delay state =
 				then True else gs_gameOver state
 		}
 	where
+		frameDelay = getFrameDelay (gs_level state) (gs_fastMode state)
 		snakeCells = gs_snakeCells state
 		foodCells = gs_foodCells state
 		inDoor = gs_inDoor state

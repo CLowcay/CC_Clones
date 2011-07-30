@@ -39,6 +39,7 @@ initGameState = do
 		gs_wallStamp = wallStamp,
 		gs_nextDirection = DUp,
 		gs_ttFrameSwap = 0,
+		gs_fastMode = False,
 		gs_framesToAlignment = 15,
 		gs_holdCount = 0,
 		gs_snakeCells = [],

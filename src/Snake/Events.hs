@@ -44,6 +44,9 @@ handleEvent (KeyDown sym) = do
 			put$state {gs_nextDirection = DRight}
 			return True
 		SDLK_ESCAPE -> return False
+		SDLK_f -> do
+			put$state {gs_fastMode = not$ gs_fastMode state}
+			return True
 		SDLK_F5 -> do
 			put$state {gs_paused = not$ gs_paused state}
 			return True
