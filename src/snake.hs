@@ -11,11 +11,11 @@ import Graphics.UI.SDL.Mixer
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Snake.Assets
-import Snake.Events
 import Snake.GameState
 import Snake.Render
 import Time
 
+-- Entry point
 main :: IO ()
 main = do
 	initSDL
@@ -26,6 +26,7 @@ main = do
 	closeAudio
 	quit
 
+-- Library initialisation
 initSDL :: IO ()
 initSDL = do
 	Graphics.UI.SDL.init [InitVideo]
@@ -34,6 +35,7 @@ initSDL = do
 	allocateChannels (fromEnum ChannelCount)
 	return ()
 
+-- The initial GameState
 initGameState :: IO (GameState)
 initGameState = do
 	gfx <- loadSprites
@@ -64,6 +66,7 @@ initGameState = do
 		gs_eatingApples = []
 	}
 
+-- The main game loop
 mainLoop :: ClockTime -> GameState -> IO ()
 mainLoop time0 state0 = do
 	playSounds state0
@@ -82,6 +85,55 @@ mainLoop time0 state0 = do
 		then loadLevel (gs_level state2) state2 else return state2
 	if continue then mainLoop time1 state2' else return ()
 
+-- Handle game events
+gameEventHandler :: EventHandler GameState
+gameEventHandler Quit = return False
+gameEventHandler (KeyDown sym) = do
+	state <- get
+	let currentDirection = gs_currentDirection state
+	case (symKey sym) of
+		SDLK_UP -> do
+			put$state {
+				gs_nextDirection = if currentDirection == DDown
+					then gs_nextDirection state else DUp
+			}
+			return True
+		SDLK_DOWN -> do
+			put$state {
+				gs_nextDirection = if currentDirection == DUp
+					then gs_nextDirection state else DDown
+			}
+			return True
+		SDLK_LEFT -> do
+			put$state {
+				gs_nextDirection = if currentDirection == DRight
+					then gs_nextDirection state else DLeft
+			}
+			return True
+		SDLK_RIGHT -> do
+			put$state {
+				gs_nextDirection = if currentDirection == DLeft
+					then gs_nextDirection state else DRight
+			}
+			return True
+		SDLK_ESCAPE -> return False
+		SDLK_f -> do
+			put$state {gs_fastMode = not$ gs_fastMode state}
+			return True
+		SDLK_F5 -> do
+			put$state {gs_paused = not$ gs_paused state, gs_fastMode = False}
+			return True
+		SDLK_F2 -> do
+			put$state {
+				gs_levelCounter = resetCounter 0 (gs_levelCounter state),
+				gs_scoreCounter = resetCounter 0 (gs_scoreCounter state),
+				gs_level = 1, gs_loadLevel = True, gs_score = 0,
+				gs_paused = False, gs_gameOver = False}
+			return True
+		_ -> return True
+gameEventHandler _ = return True
+
+-- Play currently scheduled sound effects
 playSounds :: GameState -> IO ()
 playSounds state =
 	mapM_ (\(sound, channel) ->
