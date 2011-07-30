@@ -1,5 +1,6 @@
 module Snake.Assets where
 
+import Common.Assets
 import Common.Counters
 import Common.Graphics
 import Common.Util
@@ -190,7 +191,4 @@ makeAnimation surface w h x y =
 		surface = surface,
 		frames = listArray (0, 0) [Rect (x * w) (y * h) w h]
 	}
-
-getAssetPath :: String -> String
-getAssetPath fileName = ASSET_PREFIX ++ fileName
 
