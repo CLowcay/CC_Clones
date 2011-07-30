@@ -45,6 +45,8 @@ renderFrame state = do
 	-- UI elements
 	when (gs_paused state) $ do
 		renderAnimation display 0 123 160 (gfx Map.! Paused)
+	when (gs_gameOver state) $ do
+		renderAnimation display 0 140 208 (gfx Map.! GameOverTile)
 	Graphics.UI.SDL.flip display
 	return ()
 

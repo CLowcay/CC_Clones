@@ -24,6 +24,7 @@ loadSprites = do
 	sheet1 <- loadBMP$ getAssetPath "gfx/Sheet1.bmp"
 	let sheet1Animation = makeAnimation sheet1 16 16
 	paused <- loadBMP$ getAssetPath "gfx/Paused.bmp"
+	gameOver <- loadBMP$ getAssetPath "gfx/gameOver.bmp"
 	sidePanel <- loadBMP$ getAssetPath "gfx/SidePanel.bmp"
 	digits <- loadBMP$ getAssetPath "gfx/Digits.bmp"
 	headDown <- loadBMP$ getAssetPath "gfx/HeadDown.bmp"
@@ -33,7 +34,8 @@ loadSprites = do
 
 	mapM_ (\surface ->
 			setColorKey surface [SrcColorKey] (Pixel 0x00FF00FF))
-		[sheet1, paused, sidePanel, digits, headDown, headLeft, headRight, headUp]
+		[sheet1, paused, gameOver, sidePanel, digits,
+			headDown, headLeft, headRight, headUp]
 
 	let
 		tileAnimation Digits = Animation {
@@ -42,6 +44,9 @@ loadSprites = do
 		tileAnimation Paused = Animation {
 		 	surface = paused,
 		 	frames = listArray (0, 0) [Rect 0 0 234 160]}
+		tileAnimation GameOverTile = Animation {
+			surface = gameOver,
+			frames = listArray (0, 0) [Rect 0 0 200 64]}
 		tileAnimation SidePanel = Animation {
 		 	surface = sidePanel,
 		 	frames = listArray (0, 0) [Rect 0 0 200 480]}

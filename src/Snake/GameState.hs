@@ -44,7 +44,7 @@ data GameState = GameState {
 	gs_eatingApples :: [((Int, Int), Tile)]
 } deriving (Show)
 
-data Tile = Digits | Paused | SidePanel |
+data Tile = Digits | Paused | SidePanel | GameOverTile |
 	HeadDown | HeadLeft | HeadRight | HeadUp |
 	SnakeV | SnakeH | SnakeUL | SnakeUR | SnakeDR | SnakeDL |
 	SnakeTHL | SnakeTHR | SnakeTVU | SnakeTVD | AppleA | AppleB |
