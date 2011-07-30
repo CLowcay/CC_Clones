@@ -167,7 +167,7 @@ loadLevel level state = do
 		gs_snakeCells = snakeCells,
 		gs_foodCells = Map.fromList$ concatMap (\((x, y), tile) ->
 				if tile == AppleA || tile == AppleB
-					then [((x, y), appleValues Map.! tile)] else []
+					then [((x, y), tile)] else []
 			) levelMap,
 		gs_wallCells = Set.fromList$ concatMap (\(cell, tile) ->
 			if (elem tile [WallV, WallH, WallUL, WallUR, WallDR, WallDL,
@@ -180,7 +180,8 @@ loadLevel level state = do
 		gs_outDoorTile = snd$ fromJust$ find isOutDoorTile levelMap,
 		gs_loadLevel = False,
 		gs_level = level,
-		gs_levelCounter = setCounter level (gs_levelCounter state)
+		gs_levelCounter = setCounter level (gs_levelCounter state),
+		gs_eatingApples = []
 	}
 
 makeAnimation :: Surface -> Int -> Int -> Int -> Int -> Animation

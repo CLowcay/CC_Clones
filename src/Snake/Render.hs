@@ -12,9 +12,9 @@ import Snake.GameState
 renderFrame :: GameState -> IO ()
 renderFrame state = do
 	let gfx = gs_gfx state
-	let frame =
-		if Map.member (fst$head$ gs_snakeCells state) (gs_foodCells state)
-			then ((15 - (gs_framesToAlignment state) + 5) `mod` 16) else 4
+	let eatingApples = gs_eatingApples state
+	let frame = if not$null eatingApples
+		then ((15 - (gs_framesToAlignment state) + 5) `mod` 16) else 4
 	display <- getVideoSurface
 
 	blitSurface (gs_wallStamp state) Nothing display (Just$ Rect 0 0 0 0)
@@ -34,10 +34,11 @@ renderFrame state = do
 	let foodCells = gs_foodCells state
 	mapM_ (\(x, y) ->
 			renderAnimation display 0 (x * 16) (y * 16)
-				(gfx Map.! (case foodCells Map.! (x, y) of
-					1 -> AppleA
-					5 -> AppleB))
+				(gfx Map.! (foodCells Map.! (x, y)))
 		) (Map.keys foodCells)
+	mapM_ (\((x, y), tile) ->
+			renderAnimation display 0 (x * 16) (y * 16) (gfx Map.! tile)
+		) eatingApples
 
 	renderSnake display frame state
 

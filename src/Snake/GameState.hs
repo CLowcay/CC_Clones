@@ -3,7 +3,6 @@ module Snake.GameState (
 	GameState(..),
 	Tile(..), allTiles,
 	Sfx(..), Channels(..),
-	appleValues, appleValuesR,
 	updateGame, inferSnakeTiles
 ) where
 
@@ -31,7 +30,7 @@ data GameState = GameState {
 	gs_framesToAlignment :: Int,
 	gs_holdCount :: Int,
 	gs_snakeCells :: [((Int, Int), Bool)],
-	gs_foodCells :: Map.Map (Int, Int) Int,
+	gs_foodCells :: Map.Map (Int, Int) Tile,
 	gs_wallCells :: Set.Set (Int, Int),
 	gs_inDoor :: (Int, Int, Bool),
 	gs_inDoorTile :: Tile,
@@ -41,7 +40,8 @@ data GameState = GameState {
 	gs_loadLevel :: Bool,    -- set to true if the level must be reloaded
 	gs_sfxEvents :: [(Sfx, Channels)],  -- sounds to be played after rendering
 	gs_level :: Int, gs_levelCounter :: CounterState,
-	gs_gameOver :: Bool, gs_paused :: Bool
+	gs_gameOver :: Bool, gs_paused :: Bool,
+	gs_eatingApples :: [((Int, Int), Tile)]
 } deriving (Show)
 
 data Tile = Digits | Paused | SidePanel |
@@ -62,10 +62,9 @@ data Channels = SfxChannel1 | SfxChannel2 | ChannelCount
 	deriving (Enum, Ord, Eq, Show)
 
 -- Values of the food tiles
-appleValues :: Map.Map Tile Int
-appleValues = Map.fromList [(AppleA, 1), (AppleB, 5)]
-appleValuesR :: Map.Map Int Tile
-appleValuesR = Map.fromList [(1, AppleA), (5, AppleB)]
+appleValue :: Tile -> Int
+appleValue AppleA = 1
+appleValue AppleB = 5
 
 -- The delay for snake frames, in picoseconds
 getFrameDelay :: Int -> Bool -> Integer
@@ -76,7 +75,7 @@ getFrameDelay level fastMode = ((1::Integer) * 10^12) `div` divisor
 -- Update the game state based on a time delta
 updateGame :: Integer -> GameState -> GameState
 updateGame _ (state@(GameState {gs_gameOver = True})) =
-	state {gs_sfxEvents = []}
+	state {gs_sfxEvents = [], gs_eatingApples = []}
 updateGame _ (state@(GameState {gs_paused = True})) = state
 updateGame delay state =
 	let
@@ -88,23 +87,22 @@ updateGame delay state =
 			then offset' `mod` 16 else offset'
 		advanceCells = if offset' < 0
 			then ((abs offset') `div` 16) + 1 else 0
-		eatenApple =
-			if advanceCells > 0 && (Map.member (fst$head snakeCells) foodCells)
-				then Just$ foodCells Map.! (fst$head snakeCells) else Nothing
-		scoreCounter = 
-			addCounter (fromMaybe 0 eatenApple) (gs_scoreCounter state)
 		snakeCells' =
 			hideExitedCells outDoor $
 				advanceAllCells snakeCells (gs_holdCount state) advanceCells
+		eatenApples = concatMap (\(cell, _) ->
+				if Map.member cell foodCells then [cell] else []) $
+			take advanceCells snakeCells'
+		eatenApplesValue =
+			sum$ map (\cell -> appleValue (foodCells Map.! cell)) eatenApples
+		scoreCounter = addCounter eatenApplesValue (gs_scoreCounter state)
 		level = if (isOpen outDoor') && (all (not.snd) snakeCells)
 			then (gs_level state) + 1 else (gs_level state)
 		levelCounter = setCounter level (gs_levelCounter state)
-		foodCells' = if isJust eatenApple
-			then Map.delete (fst$head snakeCells) foodCells
-			else foodCells
+		foodCells' = foldr (Map.delete) foodCells eatenApples
 		inDoor' = if ((not$snd$last snakeCells) && (snd$last snakeCells'))
 			then closeDoor inDoor else inDoor
-		outDoor' = if Map.size foodCells' == 0
+		outDoor' = if Map.size (Map.filter (== AppleA) foodCells') == 0
 			then openDoor outDoor else outDoor
 		gameOver' = 
 			if (snd$head snakeCells') &&
@@ -117,19 +115,22 @@ updateGame delay state =
 				then frameDelay + (anidiff `mod` frameDelay)
 				else anidiff,
 			gs_holdCount =
-				(max 0 (gs_holdCount state - advanceCells)) + (fromMaybe 0 eatenApple),
+				(max 0 (gs_holdCount state - advanceCells)) + eatenApplesValue,
 			gs_snakeCells = snakeCells',
 			gs_inDoor = inDoor', gs_outDoor = outDoor',
 			gs_foodCells = foodCells',
-			gs_score = (gs_score state) + (fromMaybe 0 eatenApple),
+			gs_score = (gs_score state) + eatenApplesValue,
 			gs_scoreCounter = updateCounter delay scoreCounter,
 			gs_levelCounter = updateCounter delay levelCounter,
 			gs_level = level,
 			gs_loadLevel = level /= (gs_level state),
 			gs_gameOver = gameOver',
+			gs_eatingApples = if advanceCells > 0
+				then map (\cell -> (cell, foodCells Map.! cell)) eatenApples
+				else gs_eatingApples state,
 			gs_sfxEvents = concat [
 				(if gameOver' && (not gameOver) then [(Bump, SfxChannel2)] else []),
-				(if isJust eatenApple then [(Chomp, SfxChannel1)] else [])
+				(take (length eatenApples) (repeat (Chomp, SfxChannel1)))
 			]
 		}
 	where

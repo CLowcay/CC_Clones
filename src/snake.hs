@@ -59,7 +59,8 @@ initGameState = do
 		gs_loadLevel = False,
 		gs_sfxEvents = [],
 		gs_level = 0, gs_levelCounter = initCounter (gfx Map.! Digits) 2,
-		gs_gameOver = False, gs_paused = False
+		gs_gameOver = False, gs_paused = False,
+		gs_eatingApples = []
 	}
 
 mainLoop :: ClockTime -> GameState -> IO ()
