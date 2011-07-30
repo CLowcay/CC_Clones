@@ -43,7 +43,7 @@ initGameState = do
 	return$ GameState {
 		gs_gfx = gfx, gs_sfx = sfx,
 		gs_wallStamp = wallStamp,
-		gs_nextDirection = DUp,
+		gs_nextDirection = DUp, gs_currentDirection = DUp,
 		gs_ttFrameSwap = 0,
 		gs_fastMode = False,
 		gs_framesToAlignment = 15,

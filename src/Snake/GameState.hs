@@ -25,6 +25,7 @@ data GameState = GameState {
 	gs_sfx :: Map.Map Sfx Chunk,
 	gs_wallStamp :: Surface,
 	gs_nextDirection :: Direction,
+	gs_currentDirection :: Direction,
 	gs_ttFrameSwap :: Integer,
 	gs_fastMode :: Bool,
 	gs_framesToAlignment :: Int,
@@ -111,6 +112,8 @@ updateGame delay state =
 	in
 		state {
 			gs_framesToAlignment = framesToAlignment,
+			gs_currentDirection = if advanceCells > 0
+				then gs_nextDirection state else gs_currentDirection state,
 			gs_ttFrameSwap = if anidiff < 0
 				then frameDelay + (anidiff `mod` frameDelay)
 				else anidiff,

@@ -30,18 +30,31 @@ handleEvent :: Event -> State GameState Bool
 handleEvent Quit = return False
 handleEvent (KeyDown sym) = do
 	state <- get
+	let currentDirection = gs_currentDirection state
 	case (symKey sym) of
 		SDLK_UP -> do
-			put$state {gs_nextDirection = DUp}
+			put$state {
+				gs_nextDirection = if currentDirection == DDown
+					then gs_nextDirection state else DUp
+			}
 			return True
 		SDLK_DOWN -> do
-			put$state {gs_nextDirection = DDown}
+			put$state {
+				gs_nextDirection = if currentDirection == DUp
+					then gs_nextDirection state else DDown
+			}
 			return True
 		SDLK_LEFT -> do
-			put$state {gs_nextDirection = DLeft}
+			put$state {
+				gs_nextDirection = if currentDirection == DRight
+					then gs_nextDirection state else DLeft
+			}
 			return True
 		SDLK_RIGHT -> do
-			put$state {gs_nextDirection = DRight}
+			put$state {
+				gs_nextDirection = if currentDirection == DLeft
+					then gs_nextDirection state else DRight
+			}
 			return True
 		SDLK_ESCAPE -> return False
 		SDLK_f -> do
