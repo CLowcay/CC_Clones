@@ -1,5 +1,7 @@
 module Common.Assets where
 
+import System.FilePath
+
 getAssetPath :: String -> String
-getAssetPath fileName = ASSET_PREFIX ++ fileName
+getAssetPath fileName = normalise (ASSET_PREFIX ++ fileName)
 
