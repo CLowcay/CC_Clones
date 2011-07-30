@@ -1,34 +1,15 @@
 module Snake.Events where
 
 import Common.Counters
+import Common.Events
 import Control.Monad.State
 import Graphics.UI.SDL
 import Snake.GameState
 
--- Get all available events, returns the backwards, so be sure reverse
--- the list if order of events is important
-pollAllEvents :: IO ([Event])
-pollAllEvents = fmap reverse pollAllEvents0
-	where
-		pollAllEvents0 = do
-			event <- pollEvent
-			case event of
-				NoEvent -> return []
-				_ -> (liftM (event:)) pollAllEvents
-
--- Handle a list of events
--- Returns True if the event loop should continue, otherwise False
-handleAllEvents :: [Event] -> State GameState Bool
-handleAllEvents =
-	foldM (\continue -> \event -> do
-		continue' <- handleEvent event
-		return$ continue && continue'
-	) True
-
 -- Handle an event, which may have side effects on the game state
-handleEvent :: Event -> State GameState Bool
-handleEvent Quit = return False
-handleEvent (KeyDown sym) = do
+gameEventHandler :: EventHandler GameState
+gameEventHandler Quit = return False
+gameEventHandler (KeyDown sym) = do
 	state <- get
 	let currentDirection = gs_currentDirection state
 	case (symKey sym) of
@@ -71,5 +52,5 @@ handleEvent (KeyDown sym) = do
 				gs_paused = False, gs_gameOver = False}
 			return True
 		_ -> return True
-handleEvent _ = return True
+gameEventHandler _ = return True
 

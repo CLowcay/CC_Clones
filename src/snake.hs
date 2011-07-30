@@ -1,6 +1,7 @@
 module Main where
 
 import Common.Counters
+import Common.Events
 import Common.Graphics
 import Common.Util
 import Control.Monad
@@ -71,8 +72,9 @@ mainLoop time0 state0 = do
 	time1 <- getClockTime
 	let delay = clockTimeDiff time0 time1
 
-	events <- pollAllEvents
-	let (continue, state1) = runState (handleAllEvents events) state0
+	events <- pollEvents
+	let (continue, state1) =
+		runState (handleEvents gameEventHandler events) state0
 	state1' <- if gs_loadLevel state1
 		then loadLevel (gs_level state1) state1 else return state1
 	let state2 = updateGame delay state1'
