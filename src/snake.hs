@@ -9,6 +9,7 @@ import Control.Monad
 import Control.Monad.State
 import Graphics.UI.SDL
 import Graphics.UI.SDL.Mixer
+import Graphics.UI.SDL.TTF
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Snake.Assets
@@ -21,17 +22,18 @@ main :: IO ()
 main = do
 	initSDL
 	state0 <- initGameState
-	state1 <- loadLevel 1 state0
+	state1 <- loadLevel 0 state0
 	time <- getClockTime
 	mainLoop time state1
 	closeAudio
-	quit
+	Graphics.UI.SDL.quit
 
 -- Library initialisation
 initSDL :: IO ()
 initSDL = do
 	Graphics.UI.SDL.init [InitVideo]
 	setVideoMode 680 480 32 [HWSurface, DoubleBuf]
+	Graphics.UI.SDL.TTF.init
 	openAudio defaultFrequency AudioS16Sys 2 4096
 	allocateChannels (fromEnum ChannelCount)
 	return ()
@@ -43,13 +45,24 @@ initGameState = do
 	wallStamp <- (createRGBSurface [HWSurface] 480 480 32
 		0x000000FF 0x0000FF00 0x00FF0000 0xFF000000) >>= displayFormat
 	sfx <- loadSounds
+	font <- loadFont
 	highScores <- loadHighScoreTable
+
+	introMessage <- renderUTF8Solid font
+		"Press F2 to start, Esc to quit" (Color 0 64 255)
+	introMessage2 <- renderUTF8Solid font
+		"High scores:" (Color 0 64 255)
+	highScoreMessage <- renderUTF8Solid font
+		"New high score! Enter your name" (Color 0 64 255)
 
 	return$ GameState {
 		gs_gfx = gfx, gs_sfx = sfx,
-		gs_mode = InGameMode,
+		gs_font = font,
+		gs_mode = IntroMode,
 		gs_highScores = highScores,
 		gs_wallStamp = wallStamp,
+		gs_introMessage = introMessage, gs_introMessage2 = introMessage2,
+		gs_highScoreMessage = highScoreMessage,
 		gs_nextDirection = DUp, gs_currentDirection = DUp,
 		gs_ttFrameSwap = 0,
 		gs_fastMode = False,

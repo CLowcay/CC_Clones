@@ -15,6 +15,7 @@ import Data.Maybe
 import Debug.Trace
 import Graphics.UI.SDL
 import Graphics.UI.SDL.Mixer
+import Graphics.UI.SDL.TTF
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
@@ -30,8 +31,11 @@ data GameState = GameState {
 	gs_fastMode :: Bool,
 	gs_gfx :: Map.Map Tile Animation,
 	gs_sfx :: Map.Map Sfx Chunk,
+	gs_font :: Font,
 	gs_highScores :: HighScoreState,
 	gs_wallStamp :: Surface,
+	gs_introMessage :: Surface, gs_introMessage2 :: Surface,
+	gs_highScoreMessage :: Surface,
 	gs_nextDirection :: Direction,
 	gs_currentDirection :: Direction,
 	gs_ttFrameSwap :: Integer,
@@ -84,6 +88,7 @@ updateGame :: Integer -> GameState -> GameState
 updateGame _ (state@(GameState {gs_mode = GameOverMode})) =
 	state {gs_sfxEvents = [], gs_eatingApples = []}
 updateGame _ (state@(GameState {gs_mode = PausedMode})) = state
+updateGame _ (state@(GameState {gs_mode = IntroMode})) = state
 updateGame delay (state@(GameState {gs_mode = InGameMode})) =
 	let
 		anidiff = (gs_ttFrameSwap state) - delay

@@ -9,6 +9,7 @@ import Data.List
 import Data.Maybe
 import Graphics.UI.SDL
 import Graphics.UI.SDL.Mixer
+import Graphics.UI.SDL.TTF
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Snake.GameState
@@ -100,6 +101,10 @@ loadSprites = do
 		tileAnimation DoorOutH = sheet1Animation 5 4
 	return$ Map.fromList$ map (\tile ->
 		(tile, tileAnimation tile)) allTiles
+
+loadFont :: IO (Font)
+loadFont = openFont
+	(getAssetPath "fonts/TitilliumText22L004.otf") 28
 
 loadLevel :: Int -> GameState -> IO (GameState)
 loadLevel level state = do
