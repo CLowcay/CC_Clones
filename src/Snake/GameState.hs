@@ -103,7 +103,11 @@ updateGame delay (state@(GameState {gs_mode = GameOverMode})) =
 	}
 updateGame _ (state@(GameState {gs_mode = PausedMode})) = state
 updateGame _ (state@(GameState {gs_mode = IntroMode})) = state
-updateGame _ (state@(GameState {gs_mode = HighScoreMode})) = state
+updateGame _ (state@(GameState {gs_mode = HighScoreMode})) =
+	state {
+		gs_sfxEvents = [],
+		gs_eatingApples = []
+	}
 updateGame delay (state@(GameState {gs_mode = InGameMode})) =
 	let
 		anidiff = (gs_ttFrameSwap state) - delay
