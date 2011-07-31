@@ -153,7 +153,10 @@ gameEventHandler (KeyDown sym) = do
 			return True
 		SDLK_ESCAPE -> return False
 		SDLK_f -> do
-			put$state {gs_fastMode = not$ gs_fastMode state}
+			put$state {
+				gs_fastMode =
+					(not$ gs_fastMode state) && ((gs_mode state) /= PausedMode)
+			}
 			return True
 		SDLK_F5 -> do
 			let
@@ -162,7 +165,8 @@ gameEventHandler (KeyDown sym) = do
 				gs_mode = if mode == PausedMode
 					then InGameMode
 					else if mode == InGameMode
-						then PausedMode else mode
+						then PausedMode else mode,
+				gs_fastMode = False
 			}
 			return True
 		SDLK_F2 -> do
