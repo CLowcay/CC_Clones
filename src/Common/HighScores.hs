@@ -145,7 +145,7 @@ highScoreEventHandler (KeyDown sym) = do
 		char = symUnicode sym
 		keySym = symKey sym
 
-	when ((isAlphaNum char) && ((length editingName) < maxNameLength)) $ do
+	when ((isValidNameChar char) && ((length editingName) < maxNameLength)) $ do
 		put$state {
 			hs_scores =
 				updateList iEditing (editingName ++ [char], editingScore) scores
@@ -169,6 +169,8 @@ highScoreEventHandler (KeyDown sym) = do
 	where
 		safeInit [] = []
 		safeInit xs = Data.List.init xs
+		isValidNameChar char = isAlphaNum char || isSpace char ||
+			((isPunctuation char) && (not (char == '=')))
 highScoreEventHandler _ = return True
 
 -- Update a list at an index
