@@ -1,12 +1,14 @@
 module Common.HighScores where
 
 import Common.Assets
+import Common.Events
 import Common.UserData
 import Common.Util
 import Control.Monad
+import Control.Monad.State
+import Data.Char
 import Data.List
 import Data.Maybe
-import Debug.Trace
 import Graphics.UI.SDL
 import Graphics.UI.SDL.TTF
 import System.Directory
@@ -20,6 +22,12 @@ data HighScoreState = HighScoreState {
 
 maxHighScores :: Int
 maxHighScores = 5
+
+maxNameLength :: Int
+maxNameLength = 12
+
+scoresOrdering :: (String, Int) -> (String, Int) -> Ordering
+scoresOrdering a b = (snd b) `compare` (snd a)
 
 highScoresFileName :: IO FilePath
 highScoresFileName = do
@@ -43,7 +51,7 @@ loadHighScoreTable = do
 		) $ filter (not.null) (map trim (lines contents))
 	return $ HighScoreState {
 		hs_scores = 
-			(sortBy (\a -> \b -> (snd a) `compare` (snd b)) scoresUnsorted),
+			(sortBy (scoresOrdering) scoresUnsorted),
 		hs_editing = Nothing
 	}
 
@@ -62,11 +70,25 @@ writeHighScoreTable highScores = do
 -- determine if a score is worthy of the hall of fame
 isNewHighScore :: Int -> HighScoreState -> Bool
 isNewHighScore score (HighScoreState {hs_scores = scores}) =
-	let maxScore =
-		foldr (\(_, score') -> \maxScore' -> max score' maxScore') 0 scores
-	in score > maxScore || ((score == maxScore) && (
-		(not$all (\(_, score') -> score' == maxScore) scores) ||
-		length scores < maxHighScores))
+	(length scores < maxHighScores) ||
+		(any (\(_, score') -> score' <= score) scores)
+
+-- add a new high score and start editing
+insertHighScore :: Int -> HighScoreState -> HighScoreState
+insertHighScore score highScores =
+	let
+		scores = hs_scores highScores
+		i = fromMaybe (length scores) $
+			findIndex (\(_, score') -> score' <= score) scores
+	in highScores {
+		hs_scores = take maxHighScores
+			((take i scores) ++ [("", score)] ++ (drop i scores)),
+		hs_editing = Just i
+	}
+
+-- is the high score table being editing
+isEditing :: HighScoreState -> Bool
+isEditing (HighScoreState {hs_editing = editing}) = isJust editing
 
 -- render the high scores table
 renderHighScores :: Surface -> Int -> Int -> Int ->
@@ -89,4 +111,67 @@ renderHighScores dst x y w font color scores = do
 
 	where
 		isEditing i = fromMaybe False (fmap (== i) $ hs_editing scores)
+
+-- call when editing starts
+startEditing :: IO ()
+startEditing = typingMode True
+
+-- call when editing is done
+endEditing :: HighScoreState -> IO ()
+endEditing state = do
+	typingMode False
+	writeHighScoreTable state
+	return ()
+
+-- Enable or disable typing mode
+typingMode :: Bool -> IO ()
+typingMode enable = if enable then do
+		enableKeyRepeat 500 30
+		enableUnicode True
+		return ()
+	else do
+		enableKeyRepeat 0 0
+		enableUnicode False
+		return ()
+
+highScoreEventHandler :: EventHandler HighScoreState
+highScoreEventHandler Quit = return False
+highScoreEventHandler (KeyDown sym) = do
+	state <- get
+	let
+		iEditing = fromJust$ hs_editing state
+		scores = hs_scores state
+		(editingName, editingScore) = scores !! iEditing
+		char = symUnicode sym
+		keySym = symKey sym
+
+	when ((isAlphaNum char) && ((length editingName) < maxNameLength)) $ do
+		put$state {
+			hs_scores =
+				updateList iEditing (editingName ++ [char], editingScore) scores
+		}
+		return ()
+
+	when (char == '\b') $ do
+		put$state {
+			hs_scores =
+				updateList iEditing (safeInit editingName, editingScore) scores
+		}
+		return ()
+
+	when (keySym == SDLK_RETURN || keySym == SDLK_KP_ENTER) $ do
+		put$state {
+			hs_editing = Nothing
+		}
+		return ()
+
+	return True
+	where
+		safeInit [] = []
+		safeInit xs = Data.List.init xs
+highScoreEventHandler _ = return True
+
+-- Update a list at an index
+updateList :: Int -> a -> [a] -> [a]
+updateList i a xs = (take i xs) ++ [a] ++ (drop (i + 1) xs)
 
