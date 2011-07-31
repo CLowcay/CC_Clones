@@ -87,7 +87,10 @@ setCounter n state = state {cs_target = n}
 
 -- Set the value of the counter, and do not animate the return
 resetCounter :: Int -> CounterState -> CounterState
-resetCounter n state = state {cs_target = n, cs_display = n}
+resetCounter n state = state {
+	cs_target = n, cs_display = n,
+	cs_ttFrameSwap = 0, cs_framesToAlignment = 0
+}
 
 -- Render the counter
 renderCounter :: Int -> Int -> CounterState -> IO ()
