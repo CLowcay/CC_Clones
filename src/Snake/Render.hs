@@ -44,7 +44,7 @@ renderFrame state = do
 		) eatingApples
 
 	-- The snake
-	when (mode == InGameMode ||
+	when (mode == InGameMode || mode == GameOverMode ||
 		mode == PausedMode || mode == HighScoreMode) $ do
 			renderSnake display frame state
 
@@ -60,6 +60,13 @@ renderFrame state = do
 			display (Just$ Rect 32 212 0 0)
 		renderHighScores display 32 260 416 (gs_font state)
 			(Color 0 64 255) (gs_highScores state)
+	
+	when (mode == HighScoreMode) $ do
+		blitSurface (gs_highScoreMessage state) Nothing
+			display (Just$ Rect 32 196 0 0)
+		renderHighScores display 32 260 416 (gs_font state)
+			(Color 0 64 255) (gs_highScores state)
+		return ()
 
 	when (mode == PausedMode) $ do
 		renderAnimation display 0 123 160 (gfx Map.! Paused)

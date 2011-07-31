@@ -77,6 +77,7 @@ appleValue :: Tile -> Int
 appleValue AppleA = 1
 appleValue AppleB = 5
 
+-- How long to display the game over message, in picoseconds
 gameOverDelay :: Integer
 gameOverDelay = ((1::Integer) * 10^12) * 4
 
@@ -102,6 +103,7 @@ updateGame delay (state@(GameState {gs_mode = GameOverMode})) =
 	}
 updateGame _ (state@(GameState {gs_mode = PausedMode})) = state
 updateGame _ (state@(GameState {gs_mode = IntroMode})) = state
+updateGame _ (state@(GameState {gs_mode = HighScoreMode})) = state
 updateGame delay (state@(GameState {gs_mode = InGameMode})) =
 	let
 		anidiff = (gs_ttFrameSwap state) - delay
@@ -123,10 +125,14 @@ updateGame delay (state@(GameState {gs_mode = InGameMode})) =
 			take advanceCells snakeCells'
 		eatenApplesValue =
 			sum$ map (\cell -> appleValue (foodCells Map.! cell)) eatenApples
-		scoreCounter = addCounter eatenApplesValue (gs_scoreCounter state)
+		scoreCounter = if gameOver
+			then resetCounter 0 (gs_scoreCounter state)
+			else addCounter eatenApplesValue (gs_scoreCounter state)
 		level = if (isOpen outDoor') && (all (not.snd) snakeCells)
 			then (gs_level state) + 1 else (gs_level state)
-		levelCounter = setCounter level (gs_levelCounter state)
+		levelCounter = if gameOver
+			then resetCounter 0 (gs_levelCounter state)
+			else setCounter level (gs_levelCounter state)
 		foodCells' = foldr (Map.delete) foodCells eatenApples
 		inDoor' = if ((not$snd$last snakeCells) && (snd$last snakeCells'))
 			then closeDoor inDoor else inDoor
@@ -134,9 +140,15 @@ updateGame delay (state@(GameState {gs_mode = InGameMode})) =
 			then openDoor outDoor else outDoor
 		gameOver = (snd$head snakeCells') &&
 			(not$allClear inDoor' outDoor' advanceCells)
+		newHighScore = isNewHighScore score highScores
 	in
 		state {
-			gs_mode = if gameOver then GameOverMode else InGameMode,
+			gs_mode = if gameOver
+				then if newHighScore
+					then HighScoreMode else GameOverMode
+				else InGameMode,
+			gs_highScores = if gameOver && newHighScore
+				then insertHighScore score highScores else highScores,
 			gs_framesToAlignment = framesToAlignment,
 			gs_currentDirection = if advanceCells > 0
 				then gs_nextDirection state else gs_currentDirection state,
@@ -146,7 +158,7 @@ updateGame delay (state@(GameState {gs_mode = InGameMode})) =
 			gs_snakeCells = snakeCells',
 			gs_inDoor = inDoor', gs_outDoor = outDoor',
 			gs_foodCells = foodCells',
-			gs_score = (gs_score state) + eatenApplesValue,
+			gs_score = score + eatenApplesValue,
 			gs_scoreCounter = updateCounter delay scoreCounter,
 			gs_levelCounter = updateCounter delay levelCounter,
 			gs_level = level,
@@ -161,6 +173,8 @@ updateGame delay (state@(GameState {gs_mode = InGameMode})) =
 		}
 	where
 		sfx = gs_sfx state
+		highScores = gs_highScores state
+		score = gs_score state
 		frameDelay = getFrameDelay (gs_level state) (gs_fastMode state)
 		snakeCells = gs_snakeCells state
 		foodCells = gs_foodCells state
