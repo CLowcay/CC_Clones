@@ -47,6 +47,7 @@ initGameState = do
 
 	return$ GameState {
 		gs_gfx = gfx, gs_sfx = sfx,
+		gs_mode = InGameMode,
 		gs_highScores = highScores,
 		gs_wallStamp = wallStamp,
 		gs_nextDirection = DUp, gs_currentDirection = DUp,
@@ -65,7 +66,6 @@ initGameState = do
 		gs_loadLevel = False,
 		gs_sfxEvents = [],
 		gs_level = 0, gs_levelCounter = initCounter (gfx Map.! Digits) 2,
-		gs_gameOver = False, gs_paused = False,
 		gs_eatingApples = []
 	}
 
@@ -124,14 +124,22 @@ gameEventHandler (KeyDown sym) = do
 			put$state {gs_fastMode = not$ gs_fastMode state}
 			return True
 		SDLK_F5 -> do
-			put$state {gs_paused = not$ gs_paused state, gs_fastMode = False}
+			let
+				mode = gs_mode state
+			put$state {
+				gs_mode = if mode == PausedMode
+					then InGameMode
+					else if mode == InGameMode
+						then PausedMode else mode
+			}
 			return True
 		SDLK_F2 -> do
 			put$state {
+				gs_mode = InGameMode,
 				gs_levelCounter = resetCounter 0 (gs_levelCounter state),
 				gs_scoreCounter = resetCounter 0 (gs_scoreCounter state),
-				gs_level = 1, gs_loadLevel = True, gs_score = 0,
-				gs_paused = False, gs_gameOver = False}
+				gs_level = 1, gs_loadLevel = True, gs_score = 0
+			}
 			return True
 		_ -> return True
 gameEventHandler _ = return True

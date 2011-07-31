@@ -165,9 +165,9 @@ loadLevel level state = do
 	
 	-- Initialise the state
 	return$ state {
+		gs_fastMode = False,
 		gs_nextDirection = startDirection, gs_currentDirection = startDirection,
 		gs_ttFrameSwap = 0,
-		gs_fastMode = False,
 		gs_framesToAlignment = 15,
 		gs_holdCount = 0,
 		gs_snakeCells = snakeCells,

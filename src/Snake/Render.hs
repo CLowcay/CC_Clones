@@ -11,10 +11,12 @@ import Snake.GameState
 -- Render a frame
 renderFrame :: GameState -> IO ()
 renderFrame state = do
-	let gfx = gs_gfx state
-	let eatingApples = gs_eatingApples state
-	let frame = if not$null eatingApples
-		then ((15 - (gs_framesToAlignment state) + 5) `mod` 16) else 4
+	let
+		mode = gs_mode state
+		gfx = gs_gfx state
+		eatingApples = gs_eatingApples state
+		frame = if not$null eatingApples
+			then ((15 - (gs_framesToAlignment state) + 5) `mod` 16) else 4
 	display <- getVideoSurface
 
 	blitSurface (gs_wallStamp state) Nothing display (Just$ Rect 0 0 0 0)
@@ -43,9 +45,9 @@ renderFrame state = do
 	renderSnake display frame state
 
 	-- UI elements
-	when (gs_paused state) $ do
+	when (mode == PausedMode) $ do
 		renderAnimation display 0 123 160 (gfx Map.! Paused)
-	when (gs_gameOver state) $ do
+	when (mode == GameOverMode) $ do
 		renderAnimation display 0 140 208 (gfx Map.! GameOverTile)
 	Graphics.UI.SDL.flip display
 	return ()
