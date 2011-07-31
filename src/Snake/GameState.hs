@@ -77,6 +77,9 @@ appleValue :: Tile -> Int
 appleValue AppleA = 1
 appleValue AppleB = 5
 
+gameOverDelay :: Integer
+gameOverDelay = ((1::Integer) * 10^12) * 4
+
 -- The delay for snake frames, in picoseconds
 getFrameDelay :: Int -> Bool -> Integer
 getFrameDelay level fastMode = ((1::Integer) * 10^12) `div` divisor
@@ -85,13 +88,26 @@ getFrameDelay level fastMode = ((1::Integer) * 10^12) `div` divisor
 
 -- Update the game state based on a time delta
 updateGame :: Integer -> GameState -> GameState
-updateGame _ (state@(GameState {gs_mode = GameOverMode})) =
-	state {gs_sfxEvents = [], gs_eatingApples = []}
+updateGame delay (state@(GameState {gs_mode = GameOverMode})) =
+	let
+		ttFrameSwap = (gs_ttFrameSwap state) - delay
+		done = ttFrameSwap <= 0
+	in state {
+		gs_mode = if done then IntroMode else GameOverMode,
+		gs_level = if done then 0 else gs_level state,
+		gs_loadLevel = if done then True else False,
+		gs_ttFrameSwap = max 0 ttFrameSwap,
+		gs_sfxEvents = [],
+		gs_eatingApples = []
+	}
 updateGame _ (state@(GameState {gs_mode = PausedMode})) = state
 updateGame _ (state@(GameState {gs_mode = IntroMode})) = state
 updateGame delay (state@(GameState {gs_mode = InGameMode})) =
 	let
 		anidiff = (gs_ttFrameSwap state) - delay
+		ttFrameSwap = if anidiff < 0
+			then frameDelay + (anidiff `mod` frameDelay)
+			else anidiff
 		advanceFrames = fromInteger$ if anidiff < 0
 			then ((abs anidiff) `div` frameDelay) + 1 else 0
 		offset' = (gs_framesToAlignment state) - advanceFrames
@@ -124,9 +140,7 @@ updateGame delay (state@(GameState {gs_mode = InGameMode})) =
 			gs_framesToAlignment = framesToAlignment,
 			gs_currentDirection = if advanceCells > 0
 				then gs_nextDirection state else gs_currentDirection state,
-			gs_ttFrameSwap = if anidiff < 0
-				then frameDelay + (anidiff `mod` frameDelay)
-				else anidiff,
+			gs_ttFrameSwap = if gameOver then gameOverDelay else ttFrameSwap,
 			gs_holdCount =
 				(max 0 (gs_holdCount state - advanceCells)) + eatenApplesValue,
 			gs_snakeCells = snakeCells',
