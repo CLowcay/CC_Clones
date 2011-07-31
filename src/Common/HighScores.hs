@@ -6,6 +6,7 @@ import Common.Util
 import Control.Monad
 import Data.List
 import Data.Maybe
+import Debug.Trace
 import Graphics.UI.SDL
 import Graphics.UI.SDL.TTF
 import System.Directory
@@ -36,11 +37,10 @@ loadHighScoreTable = do
 		
 	file <- openFile filename ReadMode
 	contents <- hGetContents file
-	hClose file
 	let scoresUnsorted = map (\line ->
-			let (name, score) = break (/= '=') line in
-				(take 8 (trim name), read (trim score))
-		) $ lines contents
+			let (name, score) = break (== '=') line in
+				(take 8 (trim name), read (trim$ tail score))
+		) $ filter (not.null) (map trim (lines contents))
 	return $ HighScoreState {
 		hs_scores = 
 			(sortBy (\a -> \b -> (snd a) `compare` (snd b)) scoresUnsorted),
