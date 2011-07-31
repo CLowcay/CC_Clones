@@ -2,6 +2,7 @@ module Snake.Render where
 
 import Common.Counters
 import Common.Graphics
+import Common.HighScores
 import Control.Monad
 import Data.Array
 import Graphics.UI.SDL
@@ -42,13 +43,30 @@ renderFrame state = do
 			renderAnimation display 0 (x * 16) (y * 16) (gfx Map.! tile)
 		) eatingApples
 
-	renderSnake display frame state
+	-- The snake
+	when (mode == InGameMode ||
+		mode == PausedMode || mode == HighScoreMode) $ do
+			renderSnake display frame state
 
 	-- UI elements
+	when (mode == IntroMode) $ do
+		let
+			introMessage = gs_introMessage state
+			w1 = surfaceGetWidth introMessage
+			introMessage2 = gs_introMessage2 state
+		blitSurface introMessage Nothing
+			display (Just$ Rect ((480 - w1) `div` 2) 128 0 0)
+		blitSurface introMessage2 Nothing
+			display (Just$ Rect 32 212 0 0)
+		renderHighScores display 32 260 416 (gs_font state)
+			(Color 0 64 255) (gs_highScores state)
+
 	when (mode == PausedMode) $ do
 		renderAnimation display 0 123 160 (gfx Map.! Paused)
+
 	when (mode == GameOverMode) $ do
 		renderAnimation display 0 140 208 (gfx Map.! GameOverTile)
+
 	Graphics.UI.SDL.flip display
 	return ()
 
