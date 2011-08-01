@@ -165,8 +165,8 @@ loadLevel level state = do
 			case startDirection of
 				DUp -> map (\i -> ((0, i), i == 0)) [0..(4 + (2 * level))]
 				DDown -> map (\i -> ((0, -i), i == 0)) [0..(4 + (2 * level))]
-				DLeft -> map (\i -> ((-i, 0), i == 0)) [0..(4 + (2 * level))]
-				DRight -> map (\i -> ((i, 0), i == 0)) [0..(4 + (2 * level))]
+				DLeft -> map (\i -> ((i, 0), i == 0)) [0..(4 + (2 * level))]
+				DRight -> map (\i -> ((-i, 0), i == 0)) [0..(4 + (2 * level))]
 	
 	-- Initialise the state
 	return$ state {
