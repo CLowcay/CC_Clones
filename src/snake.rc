@@ -1,0 +1,36 @@
+#include <windows.h>
+#include <commctrl.h>
+#include <richedit.h>
+
+LANGUAGE LANG_ENGLISH,SUBLANG_ENGLISH_NZ
+
+1 ICON "Snake.ico"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION 1,0,0,0
+PRODUCTVERSION 0,1,0,0
+FILEFLAGSMASK 0x3F
+FILEFLAGS 0x0
+FILEOS VOS__WINDOWS32
+FILETYPE VFT_APP
+FILESUBTYPE VFT2_UNKNOWN
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "140904E4"
+    BEGIN
+      VALUE "Comments", "A clone of the classic Snake game\0"
+      VALUE "FileDescription", "Callum's Code Snake\0"
+      VALUE "FileVersion", "1.0\0"
+      VALUE "LegalCopyright", "© Callum Lowcay 2011\0"
+      VALUE "OriginalFilename", "snake.exe\0"
+      VALUE "ProductName", "Callum's Code Clone Collection\0"
+      VALUE "ProductVersion", "0.1\0"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x1409, 0x4E4
+  END
+END
+
