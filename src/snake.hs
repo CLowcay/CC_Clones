@@ -17,10 +17,14 @@ import Snake.GameState
 import Snake.Render
 import Time
 
+windowCaption :: String
+windowCaption = "Snake"
+
 -- Entry point
 main :: IO ()
 main = do
 	initSDL
+	setCaption windowCaption windowCaption
 	state0 <- initGameState
 	state1 <- loadLevel 0 state0
 	time <- getClockTime
