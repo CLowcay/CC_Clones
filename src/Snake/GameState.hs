@@ -85,7 +85,7 @@ gameOverDelay = ((1::Integer) * 10^12) * 4
 getFrameDelay :: Int -> Bool -> Integer
 getFrameDelay level fastMode = ((1::Integer) * 10^12) `div` divisor
 	where divisor =
-		(((fromIntegral level) * 16) + 16) * (if fastMode then 4 else 1)
+		(((fromIntegral level) * 8) + 32) * (if fastMode then 4 else 1)
 
 -- Update the game state based on a time delta
 updateGame :: Integer -> GameState -> GameState
