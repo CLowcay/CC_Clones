@@ -1,6 +1,9 @@
 #!/bin/bash
 
-if [ "$1" = "--debug" ]; then debug="-DDEBUG"; fi
+for opt in $* ; do
+	if [ "$opt" = "--debug" ]; then debug="-DDEBUG"; fi
+	if [ "$opt" = "--cheating" ]; then cheating="-DCHEATING"; fi
+done
 
 if [ ! -d build/assets/gfx ]; then mkdir -p build/assets/gfx; fi
 cp src_assets/gfx/* build/assets/gfx
@@ -18,6 +21,8 @@ cp src_assets/highscores build/assets
 
 if [ ! -d build ]; then mkdir build; fi
 for exe in snake; do
-	ghc -cpp -DASSET_PREFIX="\"./assets/\"" $debug -ibuild:src -outputdir build --make src/$exe.hs -o build/$exe
+	ghc -cpp -DASSET_PREFIX="\"./assets/\"" $debug $cheating \
+		-ibuild:src -outputdir build \
+		--make src/$exe.hs -o build/$exe
 done
 

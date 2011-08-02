@@ -1,6 +1,9 @@
 #!/bin/bash
 
-if [ "$1" = "--debug" ]; then debug="-DDEBUG"; fi
+for opt in $* ; do
+	if [ "$opt" = "--debug" ]; then debug="-DDEBUG"; fi
+	if [ "$opt" = "--cheating" ]; then cheating="-DCHEATING"; fi
+done
 
 if [ ! -d build/assets/gfx ]; then mkdir -p build/assets/gfx; fi
 cp src_assets/gfx/* build/assets/gfx
@@ -20,7 +23,7 @@ if [ ! -d build ]; then mkdir build; fi
 for exe in snake; do
 	/usr/bin/windres "src/${exe}.rc" "build/${exe}res.o"
 
-	ghc -cpp -DASSET_PREFIX="\"./assets/\"" $debug \
+	ghc -cpp -DASSET_PREFIX="\"./assets/\"" $debug $cheating \
 		-ibuild:src -outputdir build \
 		-L"C:\SDL-1.2.14\lib" -lSDL_ttf -lSDL_mixer -optl-mwindows \
 		-optl"build/${exe}res.o" \

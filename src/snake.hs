@@ -131,6 +131,14 @@ gameEventHandler (KeyDown sym) = do
 	state <- get
 	let currentDirection = gs_currentDirection state
 	case (symKey sym) of
+#ifdef CHEATING
+		SDLK_KP_PLUS -> do
+			put$state {
+				gs_level = (gs_level state) + 1,
+				gs_loadLevel = True
+			}
+			return True
+#endif
 		SDLK_UP -> do
 			put$state {
 				gs_nextDirection = if currentDirection == DDown
