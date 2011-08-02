@@ -11,6 +11,7 @@ import Graphics.UI.SDL
 import Graphics.UI.SDL.Mixer
 import Graphics.UI.SDL.TTF
 import qualified Data.Map as Map
+import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import Snake.GameState
 
@@ -171,7 +172,7 @@ loadLevel level state = do
 	-- Initialise the state
 	return$ state {
 		gs_fastMode = False,
-		gs_nextDirection = startDirection, gs_currentDirection = startDirection,
+		gs_nextDirections = Seq.empty, gs_currentDirection = startDirection,
 		gs_ttFrameSwap = 0,
 		gs_framesToAlignment = 15,
 		gs_holdCount = 0,

@@ -11,6 +11,7 @@ import Graphics.UI.SDL
 import Graphics.UI.SDL.Mixer
 import Graphics.UI.SDL.TTF
 import qualified Data.Map as Map
+import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import Snake.Assets
 import Snake.GameState
@@ -67,7 +68,7 @@ initGameState = do
 		gs_wallStamp = wallStamp,
 		gs_introMessage = introMessage, gs_introMessage2 = introMessage2,
 		gs_highScoreMessage = highScoreMessage,
-		gs_nextDirection = DUp, gs_currentDirection = DUp,
+		gs_nextDirections = Seq.empty, gs_currentDirection = DUp,
 		gs_ttFrameSwap = 0,
 		gs_fastMode = False,
 		gs_framesToAlignment = 15,
@@ -140,28 +141,16 @@ gameEventHandler (KeyDown sym) = do
 			return True
 #endif
 		SDLK_UP -> do
-			put$state {
-				gs_nextDirection = if currentDirection == DDown
-					then gs_nextDirection state else DUp
-			}
+			put$state {gs_nextDirections = (gs_nextDirections state) Seq.|> DUp}
 			return True
 		SDLK_DOWN -> do
-			put$state {
-				gs_nextDirection = if currentDirection == DUp
-					then gs_nextDirection state else DDown
-			}
+			put$state {gs_nextDirections = (gs_nextDirections state) Seq.|> DDown}
 			return True
 		SDLK_LEFT -> do
-			put$state {
-				gs_nextDirection = if currentDirection == DRight
-					then gs_nextDirection state else DLeft
-			}
+			put$state {gs_nextDirections = (gs_nextDirections state) Seq.|> DLeft}
 			return True
 		SDLK_RIGHT -> do
-			put$state {
-				gs_nextDirection = if currentDirection == DLeft
-					then gs_nextDirection state else DRight
-			}
+			put$state {gs_nextDirections = (gs_nextDirections state) Seq.|> DRight}
 			return True
 		SDLK_ESCAPE -> return False
 		SDLK_f -> do

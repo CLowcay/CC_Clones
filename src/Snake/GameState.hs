@@ -17,6 +17,8 @@ import Graphics.UI.SDL
 import Graphics.UI.SDL.Mixer
 import Graphics.UI.SDL.TTF
 import qualified Data.Map as Map
+import qualified Data.Sequence as Seq
+-- import Data.Sequence
 import qualified Data.Set as Set
 
 data Direction = DLeft | DRight | DUp | DDown deriving (Enum, Eq, Ord, Show)
@@ -36,7 +38,8 @@ data GameState = GameState {
 	gs_wallStamp :: Surface,
 	gs_introMessage :: Surface, gs_introMessage2 :: Surface,
 	gs_highScoreMessage :: Surface,
-	gs_nextDirection :: Direction,
+	-- enqueue on the back, dequeue from the front
+	gs_nextDirections :: Seq.Seq Direction,
 	gs_currentDirection :: Direction,
 	gs_ttFrameSwap :: Integer,
 	gs_framesToAlignment :: Int,
@@ -86,6 +89,15 @@ getFrameDelay :: Int -> Bool -> Integer
 getFrameDelay level fastMode = ((1::Integer) * 10^12) `div` divisor
 	where divisor =
 		(((fromIntegral level) * 8) + 32) * (if fastMode then 4 else 1)
+
+-- Get the next direction from the queue
+getNextDirection :: Direction -> Seq.Seq Direction -> (Seq.ViewL Direction)
+getNextDirection currentDirection directions =
+	case Seq.viewl directions of
+		Seq.EmptyL -> currentDirection Seq.:< Seq.empty
+		(direction Seq.:< directions') -> if direction == currentDirection
+			then getNextDirection currentDirection directions'
+			else Seq.viewl directions
 
 -- Update the game state based on a time delta
 updateGame :: Integer -> GameState -> GameState
@@ -154,8 +166,10 @@ updateGame delay (state@(GameState {gs_mode = InGameMode})) =
 			gs_highScores = if gameOver && newHighScore
 				then insertHighScore score highScores else highScores,
 			gs_framesToAlignment = framesToAlignment,
-			gs_currentDirection = if advanceCells > 0
-				then gs_nextDirection state else gs_currentDirection state,
+			gs_nextDirections =
+				if advanceCells > 0 then nextDirections' else nextDirections,
+			gs_currentDirection =
+				if advanceCells > 0 then currentDirection' else currentDirection,
 			gs_ttFrameSwap = if gameOver then gameOverDelay else ttFrameSwap,
 			gs_holdCount =
 				(max 0 (gs_holdCount state - advanceCells)) + eatenApplesValue,
@@ -179,6 +193,10 @@ updateGame delay (state@(GameState {gs_mode = InGameMode})) =
 		sfx = gs_sfx state
 		highScores = gs_highScores state
 		score = gs_score state
+		currentDirection = gs_currentDirection state
+		nextDirections = gs_nextDirections state
+		(currentDirection' Seq.:< nextDirections') =
+			getNextDirection currentDirection nextDirections
 		frameDelay = getFrameDelay (gs_level state) (gs_fastMode state)
 		snakeCells = gs_snakeCells state
 		foodCells = gs_foodCells state
@@ -190,7 +208,7 @@ updateGame delay (state@(GameState {gs_mode = InGameMode})) =
 			) [1 .. advance]
 		-- Is a cell clear of obstruction
 		isClear ((x, y), _) inDoor' outDoor' advance =
-			let cell = case gs_nextDirection state of
+			let cell = case currentDirection' of
 				DUp -> (x, y - advance)
 				DDown -> (x, y + advance)
 				DLeft -> (x - advance, y)
@@ -214,7 +232,7 @@ updateGame delay (state@(GameState {gs_mode = InGameMode})) =
 			advanceAllCells (advanceCell snake holdCount) (holdCount - 1) (n - 1)
 		-- Advance the snake a single cell
 		advanceCell (h@((x, y), _):body) holdCount =
-			case gs_nextDirection state of
+			case currentDirection' of
 				DUp -> ((x, y - 1), True):h:(nextBody holdCount body)
 				DDown -> ((x, y + 1), True):h:(nextBody holdCount body)
 				DLeft -> ((x - 1, y), True):h:(nextBody holdCount body)
