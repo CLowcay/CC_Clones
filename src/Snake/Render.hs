@@ -6,7 +6,7 @@ import Common.HighScores
 import Control.Monad
 import Data.Array
 import Graphics.UI.SDL
-import qualified Data.Map as Map
+import qualified Data.Map as M
 import Snake.GameState
 
 -- Render a frame
@@ -23,25 +23,25 @@ renderFrame state = do
 	blitSurface (gs_wallStamp state) Nothing display (Just$ Rect 0 0 0 0)
 	let (x, y, open) = gs_inDoor state in when (not open) $
 		renderAnimation display 0 (x * 16) (y * 16)
-			(gfx Map.! (gs_inDoorTile state))
+			(gfx M.! (gs_inDoorTile state))
 	let (x, y, open) = gs_outDoor state in when (not open) $
 		renderAnimation display 0 (x * 16) (y * 16)
-			(gfx Map.! (gs_outDoorTile state))
+			(gfx M.! (gs_outDoorTile state))
 
 	-- render the side panel
 	renderCounter (23 + 480) 172 (gs_levelCounter state)
 	renderCounter (84 + 480) 172 (gs_scoreCounter state)
-	renderAnimation display 0 480 0 (gfx Map.! SidePanel)
+	renderAnimation display 0 480 0 (gfx M.! SidePanel)
 
 	-- render food
 	let foodCells = gs_foodCells state
-	mapM_ (\(x, y) ->
+	forM_ (M.keys foodCells) (\(x, y) ->
 			renderAnimation display 0 (x * 16) (y * 16)
-				(gfx Map.! (foodCells Map.! (x, y)))
-		) (Map.keys foodCells)
-	mapM_ (\((x, y), tile) ->
-			renderAnimation display 0 (x * 16) (y * 16) (gfx Map.! tile)
-		) eatingApples
+				(gfx M.! (foodCells M.! (x, y)))
+		)
+	forM_ eatingApples (\((x, y), tile) ->
+			renderAnimation display 0 (x * 16) (y * 16) (gfx M.! tile)
+		) 
 
 	-- The snake
 	when (mode == InGameMode || mode == GameOverMode ||
@@ -69,10 +69,10 @@ renderFrame state = do
 		return ()
 
 	when (mode == PausedMode) $ do
-		renderAnimation display 0 123 160 (gfx Map.! Paused)
+		renderAnimation display 0 123 160 (gfx M.! Paused)
 
 	when (mode == GameOverMode) $ do
-		renderAnimation display 0 140 208 (gfx Map.! GameOverTile)
+		renderAnimation display 0 140 208 (gfx M.! GameOverTile)
 
 	Graphics.UI.SDL.flip display
 	return ()
@@ -93,7 +93,7 @@ renderSnake dst frame state = do
 		offset3 = offset2 - 16
 		nHeadTiles = if offset3 < 0 ||
 			elem (getTile$head$tail snakeTiles) cornerTiles then 2 else 3
-		headAni = gfx Map.! (getTile$head snakeTiles)
+		headAni = gfx M.! (getTile$head snakeTiles)
 		bodyTiles = drop 2 (reverse (drop nHeadTiles snakeTiles))
 		tailTiles = take 2 (reverse snakeTiles)
 
@@ -113,8 +113,9 @@ renderSnake dst frame state = do
 			renderHead3 (head$ drop 2 snakeTiles) headAni offset3 renderT1 render2
 
 	-- render body
-	mapM_ (\(((x, y), show), tile) -> when show $
-		renderAnimation dst 0 x y (gfx Map.! tile)) bodyTiles
+	forM_ bodyTiles (\(((x, y), show), tile) ->
+			when show $ renderAnimation dst 0 x y (gfx M.! tile)
+		)
 
 	-- render tail
 	case tailTiles of
@@ -133,24 +134,24 @@ renderSnake dst frame state = do
 		cornerTiles = [SnakeUL, SnakeDL, SnakeUR, SnakeDR]
 
 		renderHead1 (((x, y), show), tile) offset render =
-			when show $ (render (gfx Map.! tile) frame offset x y) >> return ()
+			when show $ (render (gfx M.! tile) frame offset x y) >> return ()
 
 		renderHead2 (((x, y), show), tile) headAni offset render =
 			when show $ if not$ elem tile cornerTiles then do
 					render headAni frame offset 16 x y
 					return ()
 				else do
-					renderAnimation dst 0 x y (gfx Map.! tile)
+					renderAnimation dst 0 x y (gfx M.! tile)
 					return ()
 
 		renderHead3 (((x, y), show), tile) headAni offset render1 render2 =
 			when show $ if not$ elem tile cornerTiles
 				then do
 					render2 headAni frame offset offset x y
-					render1 (gfx Map.! tile) 0 offset x y
+					render1 (gfx M.! tile) 0 offset x y
 					return ()
 				else do
-					renderAnimation dst 0 x y (gfx Map.! tile)
+					renderAnimation dst 0 x y (gfx M.! tile)
 					return ()
 
 		renderTail snakeTile1 snakeTile2 offset render1 render2 = do
@@ -158,15 +159,15 @@ renderSnake dst frame state = do
 				(((x1, y1), show1), tile1) = snakeTile1
 				(((x2, y2), show2), tile2) = snakeTile2
 			when show1 $ do
-				render1 (gfx Map.! tile1) 0 offset x1 y1
+				render1 (gfx M.! tile1) 0 offset x1 y1
 				return ()
 			when show2 $ if not$ elem tile2 cornerTiles
 				then do
-					render2 (gfx Map.! tile1) 0 offset offset x2 y2
-					render1 (gfx Map.! tile2) 0 offset x2 y2
+					render2 (gfx M.! tile1) 0 offset offset x2 y2
+					render1 (gfx M.! tile2) 0 offset x2 y2
 					return ()
 				else do
-					renderAnimation dst 0 x2 y2 (gfx Map.! tile2)
+					renderAnimation dst 0 x2 y2 (gfx M.! tile2)
 					return ()
 
 		renderLeft1 src frame offset x y =

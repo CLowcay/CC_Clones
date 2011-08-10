@@ -12,14 +12,14 @@ import Common.HighScores
 import Common.Util
 import Data.List
 import Data.Maybe
+import Data.Sequence (ViewL((:<)))
 import Debug.Trace
 import Graphics.UI.SDL
 import Graphics.UI.SDL.Mixer
 import Graphics.UI.SDL.TTF
-import qualified Data.Map as Map
+import qualified Data.Map as M
 import qualified Data.Sequence as Seq
--- import Data.Sequence
-import qualified Data.Set as Set
+import qualified Data.Set as S
 
 data Direction = DLeft | DRight | DUp | DDown deriving (Enum, Eq, Ord, Show)
 
@@ -31,8 +31,8 @@ data GameMode =
 data GameState = GameState {
 	gs_mode :: GameMode,
 	gs_fastMode :: Bool,
-	gs_gfx :: Map.Map Tile Animation,
-	gs_sfx :: Map.Map Sfx Chunk,
+	gs_gfx :: M.Map Tile Animation,
+	gs_sfx :: M.Map Sfx Chunk,
 	gs_font :: Font,
 	gs_highScores :: HighScoreState,
 	gs_wallStamp :: Surface,
@@ -45,8 +45,8 @@ data GameState = GameState {
 	gs_framesToAlignment :: Int,
 	gs_holdCount :: Int,
 	gs_snakeCells :: [((Int, Int), Bool)],
-	gs_foodCells :: Map.Map (Int, Int) Tile,
-	gs_wallCells :: Set.Set (Int, Int),
+	gs_foodCells :: M.Map (Int, Int) Tile,
+	gs_wallCells :: S.Set (Int, Int),
 	gs_inDoor :: (Int, Int, Bool),
 	gs_inDoorTile :: Tile,
 	gs_outDoor :: (Int, Int, Bool),
@@ -94,8 +94,8 @@ getFrameDelay level fastMode = ((1::Integer) * 10^12) `div` divisor
 getNextDirection :: Direction -> Seq.Seq Direction -> (Seq.ViewL Direction)
 getNextDirection currentDirection directions =
 	case Seq.viewl directions of
-		Seq.EmptyL -> currentDirection Seq.:< Seq.empty
-		(direction Seq.:< directions') -> if direction == currentDirection
+		Seq.EmptyL -> currentDirection :< Seq.empty
+		(direction :< directions') -> if direction == currentDirection
 			then getNextDirection currentDirection directions'
 			else Seq.viewl directions
 
@@ -137,10 +137,10 @@ updateGame delay (state@(GameState {gs_mode = InGameMode})) =
 			hideExitedCells outDoor $
 				advanceAllCells snakeCells (gs_holdCount state) advanceCells
 		eatenApples = concatMap (\(cell, _) ->
-				if Map.member cell foodCells then [cell] else []) $
+				if M.member cell foodCells then [cell] else []) $
 			take advanceCells snakeCells'
 		eatenApplesValue =
-			sum$ map (\cell -> appleValue (foodCells Map.! cell)) eatenApples
+			sum$ map (\cell -> appleValue (foodCells M.! cell)) eatenApples
 		scoreCounter = if gameOver
 			then resetCounter 0 (gs_scoreCounter state)
 			else addCounter eatenApplesValue (gs_scoreCounter state)
@@ -149,10 +149,10 @@ updateGame delay (state@(GameState {gs_mode = InGameMode})) =
 		levelCounter = if gameOver
 			then resetCounter 0 (gs_levelCounter state)
 			else setCounter level (gs_levelCounter state)
-		foodCells' = foldr (Map.delete) foodCells eatenApples
+		foodCells' = foldr (M.delete) foodCells eatenApples
 		inDoor' = if ((not$snd$last snakeCells) && (snd$last snakeCells'))
 			then closeDoor inDoor else inDoor
-		outDoor' = if Map.size (Map.filter (== AppleA) foodCells') == 0
+		outDoor' = if M.size (M.filter (== AppleA) foodCells') == 0
 			then openDoor outDoor else outDoor
 		gameOver = (snd$head snakeCells') &&
 			(not$allClear inDoor' outDoor' advanceCells)
@@ -182,7 +182,7 @@ updateGame delay (state@(GameState {gs_mode = InGameMode})) =
 			gs_level = level,
 			gs_loadLevel = level /= (gs_level state),
 			gs_eatingApples = if advanceCells > 0
-				then map (\cell -> (cell, foodCells Map.! cell)) eatenApples
+				then map (\cell -> (cell, foodCells M.! cell)) eatenApples
 				else gs_eatingApples state,
 			gs_sfxEvents = concat [
 				(if gameOver then [(Bump, SfxChannel2)] else []),
@@ -195,7 +195,7 @@ updateGame delay (state@(GameState {gs_mode = InGameMode})) =
 		score = gs_score state
 		currentDirection = gs_currentDirection state
 		nextDirections = gs_nextDirections state
-		(currentDirection' Seq.:< nextDirections') =
+		(currentDirection' :< nextDirections') =
 			getNextDirection currentDirection nextDirections
 		frameDelay = getFrameDelay (gs_level state) (gs_fastMode state)
 		snakeCells = gs_snakeCells state
@@ -213,7 +213,7 @@ updateGame delay (state@(GameState {gs_mode = InGameMode})) =
 				DDown -> (x, y + advance)
 				DLeft -> (x - advance, y)
 				DRight -> (x + advance, y)
-			in (not$Set.member cell (gs_wallCells state)) &&
+			in (not$S.member cell (gs_wallCells state)) &&
 				(not$inDoor' == (fst cell, snd cell, False)) &&
 				(not$outDoor' == (fst cell, snd cell, False)) &&
 				(not$any (\(scell, _) -> cell == scell) snakeCells)

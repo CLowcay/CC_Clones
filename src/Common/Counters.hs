@@ -6,7 +6,7 @@ module Common.Counters (
 ) where
 
 import Common.Graphics
-import Debug.Trace
+import Control.Monad
 import Graphics.UI.SDL
 
 data CounterState = CounterState {
@@ -96,20 +96,26 @@ resetCounter n state = state {
 renderCounter :: Int -> Int -> CounterState -> IO ()
 renderCounter x y state = do
 	let
-		framesToAlignment = cs_framesToAlignment state
-		nDigits = cs_nDigits state
 		digits = adjLength nDigits $ toDec$ cs_display state
-		changedDigits = cs_changedDigits state
+		digitOffsets = zip
+			(reverse [0..(nDigits - 1)])
+			(map (digitOffset) (zip changedDigits digits))
+
 	display <- getVideoSurface
-	mapM_ (\(iDigit, offset) -> do
+
+	forM_ digitOffsets (\(iDigit, offset) -> do
 			renderAnimationLoopV display 0
 				(x + (iDigit * 20)) y offset (cs_digits state)
-		)$ zip
-			(reverse [0..(nDigits - 1)])
-			(map (\(changed, d) ->
-					((d * 18) - (if changed then framesToAlignment else 0)) `mod` 180
-				) (zip changedDigits digits))
+		)
+
 	return ()
+
+	where
+		framesToAlignment = cs_framesToAlignment state
+		nDigits = cs_nDigits state
+		changedDigits = cs_changedDigits state
+		digitOffset (changed, d) = 
+			((d * 18) - (if changed then framesToAlignment else 0)) `mod` 180
 	
 -- Adjust a list to a specified length
 adjLength :: Int -> [Int] -> [Int]

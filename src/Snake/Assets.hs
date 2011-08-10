@@ -10,18 +10,18 @@ import Data.Maybe
 import Graphics.UI.SDL
 import Graphics.UI.SDL.Mixer
 import Graphics.UI.SDL.TTF
-import qualified Data.Map as Map
+import qualified Data.Map as M
 import qualified Data.Sequence as Seq
-import qualified Data.Set as Set
+import qualified Data.Set as S
 import Snake.GameState
 
-loadSounds :: IO (Map.Map Sfx Chunk)
+loadSounds :: IO (M.Map Sfx Chunk)
 loadSounds = do
 	chomp <- loadWAV$ getAssetPath "sfx/chomp.wav"
 	bump <- loadWAV$ getAssetPath "sfx/bump.wav"
-	return$ Map.fromList$ [(Chomp, chomp), (Bump, bump)]
+	return$ M.fromList$ [(Chomp, chomp), (Bump, bump)]
 
-loadSprites :: IO (Map.Map Tile Animation)
+loadSprites :: IO (M.Map Tile Animation)
 loadSprites = do
 	sheet1 <- loadBMP$ getAssetPath "gfx/Sheet1.bmp"
 	let sheet1Animation = makeAnimation sheet1 16 16
@@ -100,7 +100,7 @@ loadSprites = do
 		tileAnimation DoorOutV = sheet1Animation 5 3
 		tileAnimation DoorInH = sheet1Animation 5 4
 		tileAnimation DoorOutH = sheet1Animation 5 4
-	return$ Map.fromList$ map (\tile ->
+	return$ M.fromList$ map (\tile ->
 		(tile, tileAnimation tile)) allTiles
 
 loadFont :: IO (Font)
@@ -153,7 +153,7 @@ loadLevel level state = do
 		noRenderSprites = [DoorInH, DoorInV, DoorOutH, DoorOutV, AppleA, AppleB]
 	fillRect wallStamp (Just$ Rect 0 0 480 480) (Pixel 0x00000000)
 	mapM_ (\((x, y), tile) ->
-		renderAnimation wallStamp 0 (x * 16) (y * 16) (gfx Map.! tile))
+		renderAnimation wallStamp 0 (x * 16) (y * 16) (gfx M.! tile))
 		(filter (\(_, tile) -> not$elem tile noRenderSprites) levelMap)
 	
 	-- Prepare the doors
@@ -177,11 +177,11 @@ loadLevel level state = do
 		gs_framesToAlignment = 15,
 		gs_holdCount = 0,
 		gs_snakeCells = snakeCells,
-		gs_foodCells = Map.fromList$ concatMap (\((x, y), tile) ->
+		gs_foodCells = M.fromList$ concatMap (\((x, y), tile) ->
 				if tile == AppleA || tile == AppleB
 					then [((x, y), tile)] else []
 			) levelMap,
-		gs_wallCells = Set.fromList$ concatMap (\(cell, tile) ->
+		gs_wallCells = S.fromList$ concatMap (\(cell, tile) ->
 			if (elem tile [WallV, WallH, WallUL, WallUR, WallDR, WallDL,
 				WallTVU, WallTVD, WallTHL, WallTHR, WallDot,
 				WallXR, WallXL, WallXU, WallXD, WallX])

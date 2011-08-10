@@ -7,12 +7,13 @@ import Common.HighScores
 import Common.Util
 import Control.Monad
 import Control.Monad.State
+import Data.Sequence ((|>), (<|))
 import Graphics.UI.SDL
 import Graphics.UI.SDL.Mixer
 import Graphics.UI.SDL.TTF
-import qualified Data.Map as Map
+import qualified Data.Map as M
 import qualified Data.Sequence as Seq
-import qualified Data.Set as Set
+import qualified Data.Set as S
 import Snake.Assets
 import Snake.GameState
 import Snake.Render
@@ -74,16 +75,16 @@ initGameState = do
 		gs_framesToAlignment = 15,
 		gs_holdCount = 0,
 		gs_snakeCells = [],
-		gs_foodCells = Map.empty,
-		gs_wallCells = Set.empty,
+		gs_foodCells = M.empty,
+		gs_wallCells = S.empty,
 		gs_inDoor = (0, 0, False),
 		gs_inDoorTile = DoorInV,
 		gs_outDoor = (0, 0, False),
 		gs_outDoorTile = DoorOutV,
-		gs_score = 0, gs_scoreCounter = initCounter (gfx Map.! Digits) 5,
+		gs_score = 0, gs_scoreCounter = initCounter (gfx M.! Digits) 5,
 		gs_loadLevel = False,
 		gs_sfxEvents = [],
-		gs_level = 0, gs_levelCounter = initCounter (gfx Map.! Digits) 2,
+		gs_level = 0, gs_levelCounter = initCounter (gfx M.! Digits) 2,
 		gs_eatingApples = []
 	}
 
@@ -141,16 +142,16 @@ gameEventHandler (KeyDown sym) = do
 			return True
 #endif
 		SDLK_UP -> do
-			put$state {gs_nextDirections = (gs_nextDirections state) Seq.|> DUp}
+			put$state {gs_nextDirections = (gs_nextDirections state) |> DUp}
 			return True
 		SDLK_DOWN -> do
-			put$state {gs_nextDirections = (gs_nextDirections state) Seq.|> DDown}
+			put$state {gs_nextDirections = (gs_nextDirections state) |> DDown}
 			return True
 		SDLK_LEFT -> do
-			put$state {gs_nextDirections = (gs_nextDirections state) Seq.|> DLeft}
+			put$state {gs_nextDirections = (gs_nextDirections state) |> DLeft}
 			return True
 		SDLK_RIGHT -> do
-			put$state {gs_nextDirections = (gs_nextDirections state) Seq.|> DRight}
+			put$state {gs_nextDirections = (gs_nextDirections state) |> DRight}
 			return True
 		SDLK_ESCAPE -> return False
 		SDLK_f -> do
@@ -184,8 +185,8 @@ gameEventHandler _ = return True
 -- Play currently scheduled sound effects
 playSounds :: GameState -> IO ()
 playSounds state =
-	mapM_ (\(sound, channel) ->
-		playChannel (fromEnum channel) (sfx Map.! sound) 0) sfxEvents
+	forM_ sfxEvents (\(sound, channel) ->
+		playChannel (fromEnum channel) (sfx M.! sound) 0)
 	where
 		sfx = gs_sfx state
 		sfxEvents = gs_sfxEvents state
