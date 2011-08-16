@@ -25,6 +25,7 @@ import Common.Util
 import Control.Monad
 import Control.Monad.State
 import Data.Char
+import Data.Function
 import Data.List
 import Data.Maybe
 import Graphics.UI.SDL
@@ -44,9 +45,6 @@ maxHighScores = 5
 maxNameLength :: Int
 maxNameLength = 12
 
-scoresOrdering :: (String, Int) -> (String, Int) -> Ordering
-scoresOrdering a b = (snd b) `compare` (snd a)
-
 highScoresFileName :: IO FilePath
 highScoresFileName = do
 	userDir <- userDataPath
@@ -65,11 +63,10 @@ loadHighScoreTable = do
 	contents <- hGetContents file
 	let scoresUnsorted = map (\line ->
 			let (name, score) = break (== '=') line in
-				(take 8 (trim name), read (trim$ tail score))
+				(take maxNameLength (trim name), read (trim$ tail score))
 		) $ filter (not.null) (map trim (lines contents))
 	return $ HighScoreState {
-		hs_scores = 
-			(sortBy (scoresOrdering) scoresUnsorted),
+		hs_scores = sortBy (compare `on` snd) scoresUnsorted,
 		hs_editing = Nothing
 	}
 

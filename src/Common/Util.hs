@@ -57,6 +57,7 @@ evenElems (_:y:rest) = y:(evenElems rest)
 -- Return a sliding window of length n over a list
 slidingWindow :: Int -> [a] -> [[a]]
 slidingWindow n xs
-	| length xs < n = []
-	| otherwise = (take n xs):(slidingWindow n (tail xs))
+	| length window < n = []
+	| otherwise = window:(slidingWindow n (tail xs))
+	where window = take n xs
 
