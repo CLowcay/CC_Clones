@@ -115,6 +115,7 @@ mainLoop time0 state0 = do
 	time1 <- getClockTime
 	let delay = clockTimeDiff time0 time1
 
+	-- Run event handler, which may alter the game state
 	events <- pollEvents
 	let (continue, state1) = if (gs_mode state0 == HighScoreMode)
 		then let
@@ -122,27 +123,31 @@ mainLoop time0 state0 = do
 				(handleEvents highScoreEventHandler events) (gs_highScores state0)
 			in (continue', state0 {gs_highScores = hstate})
 		else runState (handleEvents gameEventHandler events) state0
+	state1' <- maybeLoadLevel state1
 
-	state1' <- if gs_loadLevel state1
-		then loadLevel (gs_level state1) state1 else return state1
-
+	-- Update the game state based on the current delay
 	let state2 = updateGame delay state1'
-	state2' <- if gs_loadLevel state1
-		then loadLevel (gs_level state2) state2 else return state2
+	state2' <- maybeLoadLevel state2
 	
+	-- Manage high score editing
 	let
 		isEditing0 = isEditing$ gs_highScores state0
 		isEditing1 = isEditing$ gs_highScores state2'
-
 	when (isEditing0 && (not isEditing1)) $ do
 		endEditing (gs_highScores state2')
 	when ((not isEditing0) && isEditing1) $ do
 		startEditing
 	
+	-- If high score editing is over, go back to IntroMode
 	state3 <- if (isEditing0 && (not isEditing1)) then
 		loadLevel 0 (state2' {gs_mode = IntroMode}) else return state2'
 
 	if continue then mainLoop time1 state3 else return ()
+
+-- Load a new level if required
+maybeLoadLevel :: GameState -> IO GameState
+maybeLoadLevel state = if gs_loadLevel state then
+	loadLevel (gs_level state) state else return state
 
 -- Handle game events
 gameEventHandler :: EventHandler GameState

@@ -39,7 +39,8 @@ import qualified Data.Map as M
 import qualified Data.Sequence as Seq
 import qualified Data.Set as S
 
-data Direction = DLeft | DRight | DUp | DDown deriving (Enum, Eq, Ord, Show)
+data Direction = DLeft | DRight | DUp | DDown
+	deriving (Enum, Eq, Ord, Show)
 
 data GameMode =
 	IntroMode | InGameMode | PausedMode | GameOverMode | HighScoreMode
@@ -257,7 +258,7 @@ updateGame delay (state@(GameState {gs_mode = InGameMode})) =
 				DRight -> ((x + 1, y), True):h:(nextBody holdCount body)
 		-- Get the next body of the snake, accounting for growth
 		nextBody holdCount body =
-			if holdCount > 0 then body else Data.List.init body
+			if holdCount > 0 then body else Prelude.init body
 		-- Open and close doors
 		openDoor door = let (x, y, _) = door in (x, y, True)
 		closeDoor door = let (x, y, _) = door in (x, y, False)
