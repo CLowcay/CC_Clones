@@ -79,8 +79,8 @@ updateCounter delay state =
 		cs_changedDigits = if framesToAlignment' > framesToAlignment
 			then map
 				(\(a, b) -> a /= b) $ zip
-					(adjLength nDigits$ toDec display)
-					(adjLength nDigits$ toDec display')
+					(fixedFieldLeft nDigits 0 $ toDec display)
+					(fixedFieldLeft nDigits 0 $ toDec display')
 			else cs_changedDigits state
 	}
 	where
@@ -114,7 +114,7 @@ resetCounter n state = state {
 renderCounter :: Int -> Int -> CounterState -> IO ()
 renderCounter x y state = do
 	let
-		digits = adjLength nDigits $ toDec$ cs_display state
+		digits = fixedFieldLeft nDigits 0 $ toDec$ cs_display state
 		digitOffsets = zip
 			(reverse [0..(nDigits - 1)])
 			(map (digitOffset) (zip changedDigits digits))
@@ -134,14 +134,13 @@ renderCounter x y state = do
 		digitOffset (changed, d) = 
 			((d * 18) - (if changed then framesToAlignment else 0)) `mod` 180
 	
--- Adjust a list to a specified length
-adjLength :: Int -> [Int] -> [Int]
-adjLength n xs = (take n xs) ++ 
-	if length xs < n then take (n - (length xs)) (repeat 0) else []
+-- Pad or crop a list to a certain length
+fixedFieldLeft :: Int -> a -> [a] -> [a]
+fixedFieldLeft n padding xs = take n (xs ++ repeat padding)
 
 -- Convert an integer to decimal digits, little endian
 toDec :: Int -> [Int]
 toDec n
 	| n < 10 = [n]
-	| otherwise = (n `mod` 10):(toDec (n `div` 10))
+	| otherwise = (n `rem` 10):(toDec (n `div` 10))
 
