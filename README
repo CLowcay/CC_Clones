@@ -1,0 +1,63 @@
+CC_Clones - Classic games reimplemented
+© Callum Lowcay 2006-2011
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+=======================================
+
+This is an old project of mine, recently revived.  The goal is to reimplement a
+few of those classic old computer games everyone remembers.  Many of my old
+favourites exist only as 16bit Windows binaries, and are difficult to run on
+modern operating systems.  When they do run, the graphics are uninspiring, and
+the animation jerky.  In reimplementing them, my hope is to make these classics
+playable again, so that they may continue to waste time for years to come.
+
+What's included
+===============
+ - snake: Eat the apples to earn points. The snake grows longer as it eats.
+	 When you have eaten all the green apples, the exit opens so you can advance
+	 to the next level.  Don't crash into the walls or your own tail; there are no
+	 extra lives in my implementation of one of the oldest video games.
+
+Building
+========
+
+If you downloaded the binary distribution, skip this section.
+
+I have chosen to implement these games in Haskell.  Why?  Because it is hands
+down the best general-purpose, cross-platform, compiled high-level programming
+language around.  C/C++ are not high level, Factor lacks maturity, and OCaml is
+simply not as elegant as Haskell.
+
+To build the clones, you will need to install GHC and some Haskell libraries.
+Namely mtl, SDL, SDL_Mixer, and SDL_TTF.  I recommend you install the Haskell
+Platform (http://hackage.haskell.org/platform//), which includes the cabal tool.
+Use the cabal command to install the SDL packages.
+
+Under Windows, a certain amount of hacking is required to install the SDL
+libraries.  This should get you started:
+(http://www.animal-machine.com/blog/2010/04/a-haskell-adventure-in-windows/).
+
+One you have GHC and all build dependencies installed, just run the appropriate
+build script.  unix_build.sh works on Linux, and might work on Mac too.
+cygwin_build.sh works on Cygwin under Windows.  It is currently the only way to
+build under Windows.
+
+Installing
+==========
+
+No installation is required.  If you have a binary distribution, extract the
+games somewhere and double click the executables.  If you built from source, the
+executables are in the build directory.  You can delete the *.o and *.hi files.
+
