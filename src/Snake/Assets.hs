@@ -22,6 +22,7 @@ import Common.Assets
 import Common.Counters
 import Common.Graphics
 import Common.Util
+import Control.Monad
 import Data.Array
 import Data.List
 import Data.Maybe
@@ -169,10 +170,11 @@ loadLevel level state = do
 		wallStamp = gs_wallStamp state
 		gfx = gs_gfx state
 		noRenderSprites = [DoorInH, DoorInV, DoorOutH, DoorOutV, AppleA, AppleB]
+		toRender = filter (\(_, tile) -> not$tile `elem` noRenderSprites) levelMap
 	fillRect wallStamp (Just$ Rect 0 0 480 480) (Pixel 0x00000000)
-	mapM_ (\((x, y), tile) ->
-		renderAnimation wallStamp 0 (x * 16) (y * 16) (gfx M.! tile))
-		(filter (\(_, tile) -> not$elem tile noRenderSprites) levelMap)
+
+	forM_ toRender $ \((x, y), tile) -> do
+		renderAnimation wallStamp 0 (x * 16) (y * 16) (gfx M.! tile)
 	
 	-- Prepare the doors
 	let isInDoorTile = (\(_, tile) -> tile == DoorInH || tile == DoorInV)
@@ -182,10 +184,10 @@ loadLevel level state = do
 	let snakeCells = map (\((dx, dy), visible) ->
 		(((fst inDoor) + dx, (snd inDoor) + dy), visible)) $
 			case startDirection of
-				DUp -> map (\i -> ((0, i), i == 0)) [0..(4 + (2 * level))]
-				DDown -> map (\i -> ((0, -i), i == 0)) [0..(4 + (2 * level))]
-				DLeft -> map (\i -> ((i, 0), i == 0)) [0..(4 + (2 * level))]
-				DRight -> map (\i -> ((-i, 0), i == 0)) [0..(4 + (2 * level))]
+				DUp -> [((0, i), i == 0) | i <- [0..(4 + (2 * level))]]
+				DDown -> [((0, -i), i == 0) | i <- [0..(4 + (2 * level))]]
+				DLeft -> [((i, 0), i == 0) | i <- [0..(4 + (2 * level))]]
+				DRight -> [((-i, 0), i == 0) | i <- [0..(4 + (2 * level))]]
 	
 	-- Initialise the state
 	return$ state {
