@@ -1,3 +1,21 @@
+/*
+CC_Clones - Classic games reimplemented
+© Callum Lowcay 2006-2011
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 #include <windows.h>
 #include <commctrl.h>
 #include <richedit.h>
@@ -19,12 +37,12 @@ BEGIN
   BEGIN
     BLOCK "140904E4"
     BEGIN
-      VALUE "Comments", "A clone of the classic Snake game\0"
-      VALUE "FileDescription", "Callum's Code Snake\0"
+      VALUE "Comments", "An implementation of one of the oldest video games, snake\0"
+      VALUE "FileDescription", "CC Snake\0"
       VALUE "FileVersion", "1.0\0"
       VALUE "LegalCopyright", "© Callum Lowcay 2011\0"
       VALUE "OriginalFilename", "snake.exe\0"
-      VALUE "ProductName", "Callum's Code Clone Collection\0"
+      VALUE "ProductName", "CC_Clones\0"
       VALUE "ProductVersion", "0.1\0"
     END
   END
