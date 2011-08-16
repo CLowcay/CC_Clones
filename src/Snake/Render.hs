@@ -53,13 +53,11 @@ renderFrame state = do
 
 	-- render food
 	let foodCells = gs_foodCells state
-	forM_ (M.keys foodCells) (\(x, y) ->
-			renderAnimation display 0 (x * 16) (y * 16)
-				(gfx M.! (foodCells M.! (x, y)))
-		)
-	forM_ eatingApples (\((x, y), tile) ->
-			renderAnimation display 0 (x * 16) (y * 16) (gfx M.! tile)
-		) 
+	forM_ (M.keys foodCells) $ \(x, y) -> do
+		renderAnimation display 0 (x * 16) (y * 16)
+			(gfx M.! (foodCells M.! (x, y)))
+	forM_ eatingApples $ \((x, y), tile) -> do
+		renderAnimation display 0 (x * 16) (y * 16) (gfx M.! tile)
 
 	-- The snake
 	when (mode == InGameMode || mode == GameOverMode ||
@@ -131,9 +129,8 @@ renderSnake dst frame state = do
 			renderHead3 (head$ drop 2 snakeTiles) headAni offset3 renderT1 render2
 
 	-- render body
-	forM_ bodyTiles (\(((x, y), show), tile) ->
-			when show $ renderAnimation dst 0 x y (gfx M.! tile)
-		)
+	forM_ bodyTiles $ \(((x, y), show), tile) -> do
+		when show $ renderAnimation dst 0 x y (gfx M.! tile)
 
 	-- render tail
 	case tailTiles of

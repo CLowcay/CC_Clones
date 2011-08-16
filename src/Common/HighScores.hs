@@ -79,9 +79,8 @@ writeHighScoreTable highScores = do
 	filename <- highScoresFileName
 
 	file <- openFile filename WriteMode
-	forM_ (hs_scores highScores) (\(name, score) ->
-			hPutStrLn file (name ++ "=" ++ (show score))
-		)
+	forM_ (hs_scores highScores) $ \(name, score) -> do
+		hPutStrLn file (name ++ "=" ++ (show score))
 
 	hClose file
 	return ()
@@ -115,17 +114,17 @@ renderHighScores :: Surface -> Int -> Int -> Int ->
 renderHighScores dst x y w font color scores = do
 	let highScores = hs_scores scores
 	lineSkip <- fontLineSkip font
-	forM_ (zip [0..] highScores) (\(i, (name, score)) -> do
-			nameSurface <- renderUTF8Solid font
-				(name ++ (if isEditing i then "_" else "")) color
-			scoreSurface <- renderUTF8Solid font (show score) color
-			let y' = y + (i * lineSkip)
-			blitSurface nameSurface Nothing
-				dst (Just$ Rect x y' 0 0)
-			let scoreWidth = surfaceGetWidth scoreSurface
-			blitSurface scoreSurface Nothing
-				dst (Just$ Rect (x + w - scoreWidth) y' 0 0)
-		)
+
+	forM_ (zip [0..] highScores) $ \(i, (name, score)) -> do
+		nameSurface <- renderUTF8Solid font
+			(name ++ (if isEditing i then "_" else "")) color
+		scoreSurface <- renderUTF8Solid font (show score) color
+		let y' = y + (i * lineSkip)
+		blitSurface nameSurface Nothing
+			dst (Just$ Rect x y' 0 0)
+		let scoreWidth = surfaceGetWidth scoreSurface
+		blitSurface scoreSurface Nothing
+			dst (Just$ Rect (x + w - scoreWidth) y' 0 0)
 
 	return ()
 

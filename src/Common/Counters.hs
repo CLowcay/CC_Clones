@@ -121,10 +121,9 @@ renderCounter x y state = do
 
 	display <- getVideoSurface
 
-	forM_ digitOffsets (\(iDigit, offset) -> do
-			renderAnimationLoopV display 0
-				(x + (iDigit * 20)) y offset (cs_digits state)
-		)
+	forM_ digitOffsets $ \(iDigit, offset) -> do
+		renderAnimationLoopV display 0
+			(x + (iDigit * 20)) y offset (cs_digits state)
 
 	return ()
 

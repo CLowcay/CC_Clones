@@ -203,8 +203,9 @@ gameEventHandler _ = return True
 -- Play currently scheduled sound effects
 playSounds :: GameState -> IO ()
 playSounds state =
-	forM_ sfxEvents (\(sound, channel) ->
-		playChannel (fromEnum channel) (sfx M.! sound) 0)
+	forM_ sfxEvents $ \(sound, channel) -> do
+		playChannel (fromEnum channel) (sfx M.! sound) 0
+
 	where
 		sfx = gs_sfx state
 		sfxEvents = gs_sfxEvents state
