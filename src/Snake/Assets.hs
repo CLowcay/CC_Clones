@@ -16,13 +16,19 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.module Main where
 -}
 
-module Snake.Assets where
+module Snake.Assets (
+	Assets(..),
+	loadAssets,
+	loadLevel
+) where
 
 import Common.Assets
 import Common.Counters
 import Common.Graphics
 import Common.Util
 import Control.Monad
+import Control.Monad.Trans
+import Control.Monad.Trans.Reader
 import Data.Array
 import Data.List
 import Data.Maybe
@@ -33,6 +39,24 @@ import qualified Data.Map as M
 import qualified Data.Sequence as Seq
 import qualified Data.Set as S
 import Snake.GameState
+
+data Assets = Assets {
+	gs_gfx :: M.Map Tile Animation,
+	gs_sfx :: M.Map Sfx Chunk,
+	gs_font :: Font
+}
+
+-- Load all assets
+loadAssets :: IO Assets
+loadAssets = do
+	gfx <- loadSprites
+	sfx <- loadSounds
+	font <- loadFont
+	return$ Assets {
+		gs_gfx = gfx,
+		gs_sfx = sfx,
+		gs_font = font
+	}
 
 loadSounds :: IO (M.Map Sfx Chunk)
 loadSounds = do
@@ -126,11 +150,11 @@ loadFont :: IO (Font)
 loadFont = openFont
 	(getAssetPath "fonts/TitilliumText22L004.otf") 28
 
-loadLevel :: Int -> GameState -> IO (GameState)
+loadLevel :: Int -> GameState -> ReaderT Assets IO (GameState)
 loadLevel level state = do
 	-- load the level file
 	fileData <- fmap lines$
-		readFile$ getAssetPath$ "levels/snake" ++ (show level)
+		liftIO.readFile$ getAssetPath$ "levels/snake" ++ (show level)
 	let startDirection = case trim (head fileData) of
 		"D" -> DDown
 		"U" -> DUp
@@ -166,14 +190,14 @@ loadLevel level state = do
 		)$ zip [0..] (oddElems line))$ zip [0..] (tail fileData)
 	
 	-- prepare the wallStamp
+	Assets {gs_gfx = gfx} <- ask
 	let
 		wallStamp = gs_wallStamp state
-		gfx = gs_gfx state
 		noRenderSprites = [DoorInH, DoorInV, DoorOutH, DoorOutV, AppleA, AppleB]
 		toRender = filter (\(_, tile) -> not$tile `elem` noRenderSprites) levelMap
-	fillRect wallStamp (Just$ Rect 0 0 480 480) (Pixel 0x00000000)
+	liftIO$fillRect wallStamp (Just$ Rect 0 0 480 480) (Pixel 0x00000000)
 
-	forM_ toRender $ \((x, y), tile) -> do
+	liftIO$ forM_ toRender $ \((x, y), tile) -> do
 		renderAnimation wallStamp 0 (x * 16) (y * 16) (gfx M.! tile)
 	
 	-- Prepare the doors

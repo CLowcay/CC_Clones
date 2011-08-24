@@ -25,6 +25,8 @@ import Common.HighScores
 import Common.Util
 import Control.Monad
 import Control.Monad.State
+import Control.Monad.Trans
+import Control.Monad.Trans.Reader
 import Data.Sequence ((|>), (<|))
 import Graphics.UI.SDL
 import Graphics.UI.SDL.Mixer
@@ -45,10 +47,11 @@ main :: IO ()
 main = do
 	initSDL
 	setCaption windowCaption windowCaption
-	state0 <- initGameState
-	state1 <- loadLevel 0 state0
+	assets <- loadAssets
+	state0 <- runReaderT initGameState assets
+	state1 <- runReaderT (loadLevel 0 state0) assets
 	time <- getClockTime
-	mainLoop time state1
+	runReaderT (mainLoop time state1) assets
 	closeAudio
 	Graphics.UI.SDL.quit
 
@@ -63,60 +66,57 @@ initSDL = do
 	return ()
 
 -- The initial GameState
-initGameState :: IO (GameState)
+initGameState :: ReaderT Assets IO (GameState)
 initGameState = do
-	gfx <- loadSprites
-	wallStamp <- (createRGBSurface [HWSurface] 480 480 32
-		0x000000FF 0x0000FF00 0x00FF0000 0xFF000000) >>= displayFormat
-	sfx <- loadSounds
-	font <- loadFont
-	highScores <- loadHighScoreTable
+	Assets {gs_gfx = gfx, gs_font = font} <- ask
+	liftIO$ do
+		wallStamp <- (createRGBSurface [HWSurface] 480 480 32
+			0x000000FF 0x0000FF00 0x00FF0000 0xFF000000) >>= displayFormat
+		highScores <- loadHighScoreTable
 
-	introMessage <- renderUTF8Solid font
-		"Press F2 to start, Esc to quit" (Color 0 64 255)
-	introMessage2 <- renderUTF8Solid font
-		"High scores:" (Color 0 64 255)
-	highScoreMessage <- renderUTF8Solid font
-		"New high score! Enter your name" (Color 0 64 255)
+		introMessage <- renderUTF8Solid font
+			"Press F2 to start, Esc to quit" (Color 0 64 255)
+		introMessage2 <- renderUTF8Solid font
+			"High scores:" (Color 0 64 255)
+		highScoreMessage <- renderUTF8Solid font
+			"New high score! Enter your name" (Color 0 64 255)
 
-	return$ GameState {
-		gs_gfx = gfx, gs_sfx = sfx,
-		gs_font = font,
-		gs_mode = IntroMode,
-		gs_highScores = highScores,
-		gs_wallStamp = wallStamp,
-		gs_introMessage = introMessage, gs_introMessage2 = introMessage2,
-		gs_highScoreMessage = highScoreMessage,
-		gs_nextDirections = Seq.empty, gs_currentDirection = DUp,
-		gs_ttFrameSwap = 0,
-		gs_fastMode = False,
-		gs_framesToAlignment = 15,
-		gs_holdCount = 0,
-		gs_snakeCells = [],
-		gs_foodCells = M.empty,
-		gs_wallCells = S.empty,
-		gs_inDoor = (0, 0, False),
-		gs_inDoorTile = DoorInV,
-		gs_outDoor = (0, 0, False),
-		gs_outDoorTile = DoorOutV,
-		gs_score = 0, gs_scoreCounter = initCounter (gfx M.! Digits) 5,
-		gs_loadLevel = False,
-		gs_sfxEvents = [],
-		gs_level = 0, gs_levelCounter = initCounter (gfx M.! Digits) 2,
-		gs_eatingApples = []
-	}
+		return$ GameState {
+			gs_mode = IntroMode,
+			gs_highScores = highScores,
+			gs_wallStamp = wallStamp,
+			gs_introMessage = introMessage, gs_introMessage2 = introMessage2,
+			gs_highScoreMessage = highScoreMessage,
+			gs_nextDirections = Seq.empty, gs_currentDirection = DUp,
+			gs_ttFrameSwap = 0,
+			gs_fastMode = False,
+			gs_framesToAlignment = 15,
+			gs_holdCount = 0,
+			gs_snakeCells = [],
+			gs_foodCells = M.empty,
+			gs_wallCells = S.empty,
+			gs_inDoor = (0, 0, False),
+			gs_inDoorTile = DoorInV,
+			gs_outDoor = (0, 0, False),
+			gs_outDoorTile = DoorOutV,
+			gs_score = 0, gs_scoreCounter = initCounter (gfx M.! Digits) 5,
+			gs_loadLevel = False,
+			gs_sfxEvents = [],
+			gs_level = 0, gs_levelCounter = initCounter (gfx M.! Digits) 2,
+			gs_eatingApples = []
+		}
 
 -- The main game loop
-mainLoop :: ClockTime -> GameState -> IO ()
+mainLoop :: ClockTime -> GameState -> ReaderT Assets IO ()
 mainLoop time0 state0 = do
 	playSounds state0
 	renderFrame state0
 
-	time1 <- getClockTime
+	time1 <- liftIO$getClockTime
 	let delay = clockTimeDiff time0 time1
 
 	-- Run event handler, which may alter the game state
-	events <- pollEvents
+	events <- liftIO$pollEvents
 	let (continue, state1) = if (gs_mode state0 == HighScoreMode)
 		then let
 			(continue', hstate) = runState
@@ -134,9 +134,9 @@ mainLoop time0 state0 = do
 		isEditing0 = isEditing$ gs_highScores state0
 		isEditing1 = isEditing$ gs_highScores state2'
 	when (isEditing0 && (not isEditing1)) $ do
-		endEditing (gs_highScores state2')
+		liftIO$endEditing (gs_highScores state2')
 	when ((not isEditing0) && isEditing1) $ do
-		startEditing
+		liftIO$startEditing
 	
 	-- If high score editing is over, go back to IntroMode
 	state3 <- if (isEditing0 && (not isEditing1)) then
@@ -145,7 +145,7 @@ mainLoop time0 state0 = do
 	if continue then mainLoop time1 state3 else return ()
 
 -- Load a new level if required
-maybeLoadLevel :: GameState -> IO GameState
+maybeLoadLevel :: GameState -> ReaderT Assets IO GameState
 maybeLoadLevel state = if gs_loadLevel state then
 	loadLevel (gs_level state) state else return state
 
@@ -206,12 +206,9 @@ gameEventHandler (KeyDown sym) = do
 gameEventHandler _ = return True
 
 -- Play currently scheduled sound effects
-playSounds :: GameState -> IO ()
-playSounds state =
-	forM_ sfxEvents $ \(sound, channel) -> do
+playSounds :: GameState -> ReaderT Assets IO ()
+playSounds state = do
+	Assets {gs_sfx = sfx} <- ask
+	liftIO$ forM_ (gs_sfxEvents state) $ \(sound, channel) -> do
 		playChannel (fromEnum channel) (sfx M.! sound) 0
-
-	where
-		sfx = gs_sfx state
-		sfxEvents = gs_sfxEvents state
 

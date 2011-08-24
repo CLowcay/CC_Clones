@@ -50,9 +50,6 @@ data GameMode =
 data GameState = GameState {
 	gs_mode :: GameMode,
 	gs_fastMode :: Bool,
-	gs_gfx :: M.Map Tile Animation,
-	gs_sfx :: M.Map Sfx Chunk,
-	gs_font :: Font,
 	gs_highScores :: HighScoreState,
 	gs_wallStamp :: Surface,
 	gs_introMessage :: Surface, gs_introMessage2 :: Surface,
@@ -209,7 +206,6 @@ updateGame delay (state@(GameState {gs_mode = InGameMode})) =
 			]
 		}
 	where
-		sfx = gs_sfx state
 		highScores = gs_highScores state
 		score = gs_score state
 		currentDirection = gs_currentDirection state

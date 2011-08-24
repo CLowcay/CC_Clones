@@ -22,42 +22,50 @@ import Common.Counters
 import Common.Graphics
 import Common.HighScores
 import Control.Monad
+import Control.Monad.Trans
+import Control.Monad.Trans.Reader
 import Data.Array
 import Graphics.UI.SDL
 import qualified Data.Map as M
+import Snake.Assets
 import Snake.GameState
 
 -- Render a frame
-renderFrame :: GameState -> IO ()
+renderFrame :: GameState -> ReaderT Assets IO ()
 renderFrame state = do
+	Assets {gs_gfx = gfx, gs_font = font} <- ask
+
 	let
 		mode = gs_mode state
-		gfx = gs_gfx state
 		eatingApples = gs_eatingApples state
 		frame = if not$null eatingApples
 			then ((15 - (gs_framesToAlignment state) + 5) `mod` 16) else 4
-	display <- getVideoSurface
+	display <- liftIO getVideoSurface
 
-	blitSurface (gs_wallStamp state) Nothing display (Just$ Rect 0 0 0 0)
-	let (x, y, open) = gs_inDoor state in when (not open) $
-		renderAnimation display 0 (x * 16) (y * 16)
-			(gfx M.! (gs_inDoorTile state))
-	let (x, y, open) = gs_outDoor state in when (not open) $
-		renderAnimation display 0 (x * 16) (y * 16)
-			(gfx M.! (gs_outDoorTile state))
+	-- render the doors
+	liftIO$ do
+		blitSurface (gs_wallStamp state) Nothing display (Just$ Rect 0 0 0 0)
+		let (x, y, open) = gs_inDoor state in when (not open) $
+			renderAnimation display 0 (x * 16) (y * 16)
+				(gfx M.! (gs_inDoorTile state))
+		let (x, y, open) = gs_outDoor state in when (not open) $
+			renderAnimation display 0 (x * 16) (y * 16)
+				(gfx M.! (gs_outDoorTile state))
 
 	-- render the side panel
-	renderCounter (23 + 480) 172 (gs_levelCounter state)
-	renderCounter (84 + 480) 172 (gs_scoreCounter state)
-	renderAnimation display 0 480 0 (gfx M.! SidePanel)
+	liftIO$ do
+		renderCounter (23 + 480) 172 (gs_levelCounter state)
+		renderCounter (84 + 480) 172 (gs_scoreCounter state)
+		renderAnimation display 0 480 0 (gfx M.! SidePanel)
 
 	-- render food
-	let foodCells = gs_foodCells state
-	forM_ (M.keys foodCells) $ \(x, y) -> do
-		renderAnimation display 0 (x * 16) (y * 16)
-			(gfx M.! (foodCells M.! (x, y)))
-	forM_ eatingApples $ \((x, y), tile) -> do
-		renderAnimation display 0 (x * 16) (y * 16) (gfx M.! tile)
+	liftIO$ do
+		let foodCells = gs_foodCells state
+		forM_ (M.keys foodCells) $ \(x, y) -> do
+			renderAnimation display 0 (x * 16) (y * 16)
+				(gfx M.! (foodCells M.! (x, y)))
+		forM_ eatingApples $ \((x, y), tile) -> do
+			renderAnimation display 0 (x * 16) (y * 16) (gfx M.! tile)
 
 	-- The snake
 	when (mode == InGameMode || mode == GameOverMode ||
@@ -65,7 +73,7 @@ renderFrame state = do
 			renderSnake display frame state
 
 	-- UI elements
-	when (mode == IntroMode) $ do
+	when (mode == IntroMode) $ liftIO$ do
 		let
 			introMessage = gs_introMessage state
 			w1 = surfaceGetWidth introMessage
@@ -74,28 +82,30 @@ renderFrame state = do
 			display (Just$ Rect ((480 - w1) `div` 2) 128 0 0)
 		blitSurface introMessage2 Nothing
 			display (Just$ Rect 32 212 0 0)
-		renderHighScores display 32 260 416 (gs_font state)
+		renderHighScores display 32 260 416 font
 			(Color 0 64 255) (gs_highScores state)
 	
-	when (mode == HighScoreMode) $ do
+	when (mode == HighScoreMode) $ liftIO$ do
 		blitSurface (gs_highScoreMessage state) Nothing
 			display (Just$ Rect 32 196 0 0)
-		renderHighScores display 32 260 416 (gs_font state)
+		renderHighScores display 32 260 416 font
 			(Color 0 64 255) (gs_highScores state)
 		return ()
 
-	when (mode == PausedMode) $ do
+	when (mode == PausedMode) $ liftIO$ do
 		renderAnimation display 0 123 160 (gfx M.! Paused)
 
-	when (mode == GameOverMode) $ do
+	when (mode == GameOverMode) $ liftIO$ do
 		renderAnimation display 0 140 208 (gfx M.! GameOverTile)
 
-	Graphics.UI.SDL.flip display
+	liftIO$ Graphics.UI.SDL.flip display
 	return ()
 
 -- Render the snake
-renderSnake :: Surface -> Int -> GameState -> IO ()
+renderSnake :: Surface -> Int -> GameState -> ReaderT Assets IO ()
 renderSnake dst frame state = do
+	Assets {gs_gfx = gfx} <- ask
+
 	let
 		snakeCells = gs_snakeCells state
 		snakeTiles = zip
@@ -120,38 +130,37 @@ renderSnake dst frame state = do
 		(_, HeadUp) -> (renderUp1, renderUp1, renderUp2)
 		(_, HeadDown) -> (renderDown1, renderDownT1, renderDown2)
 	if nHeadTiles == 2
-		then do
-			renderHead1 (head snakeTiles) offset render1
-			renderHead3 (head$ tail snakeTiles) headAni offset2 renderT1 render2
-		else do
-			renderHead1 (head snakeTiles) offset render1
-			renderHead2 (head$ tail snakeTiles) headAni offset2 render2
-			renderHead3 (head$ drop 2 snakeTiles) headAni offset3 renderT1 render2
+		then liftIO$ do
+			renderHead1 (head snakeTiles) offset render1 gfx
+			renderHead3 (head$ tail snakeTiles) headAni offset2 renderT1 render2 gfx
+		else liftIO$ do
+			renderHead1 (head snakeTiles) offset render1 gfx
+			renderHead2 (head$ tail snakeTiles) headAni offset2 render2 gfx
+			renderHead3 (head$ drop 2 snakeTiles) headAni offset3 renderT1 render2 gfx
 
 	-- render body
-	forM_ bodyTiles $ \(((x, y), show), tile) -> do
+	liftIO$ forM_ bodyTiles $ \(((x, y), show), tile) -> do
 		when show $ renderAnimation dst 0 x y (gfx M.! tile)
 
 	-- render tail
-	case tailTiles of
+	liftIO$ case tailTiles of
 		[tile1@(_, SnakeTHL), tile2] ->
-			renderTail tile1 tile2 offsetTail (renderLeft1) (renderLeftT2)
+			renderTail tile1 tile2 offsetTail (renderLeft1) (renderLeftT2) gfx
 		[tile1@(_, SnakeTHR), tile2] ->
-			renderTail tile1 tile2 offsetTail (renderRightT1) (renderRight2)
+			renderTail tile1 tile2 offsetTail (renderRightT1) (renderRight2) gfx
 		[tile1@(_, SnakeTVU), tile2] ->
-			renderTail tile1 tile2 offsetTail (renderUp1) (renderUpT2)
+			renderTail tile1 tile2 offsetTail (renderUp1) (renderUpT2) gfx
 		[tile1@(_, SnakeTVD), tile2] ->
-			renderTail tile1 tile2 offsetTail (renderDownT1) (renderDown2)
+			renderTail tile1 tile2 offsetTail (renderDownT1) (renderDown2) gfx
 
 	return ()
 	where
-		gfx = gs_gfx state
 		cornerTiles = [SnakeUL, SnakeDL, SnakeUR, SnakeDR]
 
-		renderHead1 (((x, y), show), tile) offset render =
+		renderHead1 (((x, y), show), tile) offset render gfx =
 			when show $ (render (gfx M.! tile) frame offset x y) >> return ()
 
-		renderHead2 (((x, y), show), tile) headAni offset render =
+		renderHead2 (((x, y), show), tile) headAni offset render gfx =
 			when show $ if not$ elem tile cornerTiles then do
 					render headAni frame offset 16 x y
 					return ()
@@ -159,7 +168,7 @@ renderSnake dst frame state = do
 					renderAnimation dst 0 x y (gfx M.! tile)
 					return ()
 
-		renderHead3 (((x, y), show), tile) headAni offset render1 render2 =
+		renderHead3 (((x, y), show), tile) headAni offset render1 render2 gfx =
 			when show $ if not$ elem tile cornerTiles
 				then do
 					render2 headAni frame offset offset x y
@@ -169,7 +178,7 @@ renderSnake dst frame state = do
 					renderAnimation dst 0 x y (gfx M.! tile)
 					return ()
 
-		renderTail snakeTile1 snakeTile2 offset render1 render2 = do
+		renderTail snakeTile1 snakeTile2 offset render1 render2 gfx = do
 			let 
 				(((x1, y1), show1), tile1) = snakeTile1
 				(((x2, y2), show2), tile2) = snakeTile2
