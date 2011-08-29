@@ -22,7 +22,7 @@ import Common.Counters
 import Common.Graphics
 import Common.HighScores
 import Control.Monad
-import Control.Monad.Trans
+import Control.Monad.IO.Class
 import Control.Monad.Trans.Reader
 import Data.Array
 import Graphics.UI.SDL

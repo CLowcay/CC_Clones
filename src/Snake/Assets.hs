@@ -27,7 +27,7 @@ import Common.Counters
 import Common.Graphics
 import Common.Util
 import Control.Monad
-import Control.Monad.Trans
+import Control.Monad.IO.Class
 import Control.Monad.Trans.Reader
 import Data.Array
 import Data.List

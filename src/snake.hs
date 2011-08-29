@@ -24,8 +24,8 @@ import Common.Graphics
 import Common.HighScores
 import Common.Util
 import Control.Monad
-import Control.Monad.State
-import Control.Monad.Trans
+import Control.Monad.IO.Class
+import Control.Monad.State hiding (liftIO)
 import Control.Monad.Trans.Reader
 import Data.Sequence ((|>), (<|))
 import Graphics.UI.SDL
