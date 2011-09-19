@@ -55,7 +55,7 @@ loadAssets = do
 	gfx <- loadSprites
 	sfx <- loadSounds
 	font <- loadFont
-	return$ Assets {
+	return Assets {
 		gfx = gfx,
 		sfx = sfx,
 		font = font
@@ -65,7 +65,7 @@ loadSounds :: IO (M.Map Sfx Chunk)
 loadSounds = do
 	chomp <- loadWAV$ getAssetPath "sfx/chomp.wav"
 	bump <- loadWAV$ getAssetPath "sfx/bump.wav"
-	return$ M.fromList$ [(Chomp, chomp), (Bump, bump)]
+	return$ M.fromList [(Chomp, chomp), (Bump, bump)]
 
 loadSprites :: IO (M.Map Tile Animation)
 loadSprites = do
@@ -149,21 +149,21 @@ loadSprites = do
 	return$ M.fromList$ map (\tile ->
 		(tile, tileAnimation tile)) allTiles
 
-loadFont :: IO (Font)
+loadFont :: IO Font
 loadFont = openFont
 	(getAssetPath "fonts/TitilliumText22L004.otf") 28
 
-loadLevel :: Int -> GameState -> ReaderT Assets IO (GameState)
+loadLevel :: Int -> GameState -> ReaderT Assets IO GameState
 loadLevel level (state@(GameState {wallStamp})) = do
 	-- load the level file
 	fileData <- fmap lines$
-		liftIO.readFile$ getAssetPath$ "levels/snake" ++ (show level)
+		liftIO.readFile$ getAssetPath$ "levels/snake" ++ show level
 	let startDirection = case trim (head fileData) of
 		"D" -> DDown
 		"U" -> DUp
 		"L" -> DLeft
 		"R" -> DRight
-		_ -> error$ "Invalid level file for level " ++ (show level)
+		_ -> error$ "Invalid level file for level " ++ show level
 	let levelMap = concatMap (\(y, line) ->
 		concatMap (\(x, c) -> case c of
 			'1' -> [((x, y), WallDL)]
@@ -189,7 +189,7 @@ loadLevel level (state@(GameState {wallStamp})) = do
 			'e' -> [((x, y), DoorOutH)]
 			'E' -> [((x, y), DoorOutV)]
 			' ' -> []
-			_ -> error$ "Invalid level file for level " ++ (show level)
+			_ -> error$ "Invalid level file for level " ++ show level
 		)$ zip [0..] (oddElems line))$ zip [0..] (tail fileData)
 	
 	-- prepare the wallStamp
@@ -199,16 +199,16 @@ loadLevel level (state@(GameState {wallStamp})) = do
 		toRender = filter (\(_, tile) -> not$tile `elem` noRenderSprites) levelMap
 	liftIO$fillRect wallStamp (Just$ Rect 0 0 480 480) (Pixel 0x00000000)
 
-	liftIO$ forM_ toRender $ \((x, y), tile) -> do
+	liftIO$ forM_ toRender $ \((x, y), tile) ->
 		renderAnimation wallStamp 0 (x * 16) (y * 16) (gfx M.! tile)
 	
 	-- Prepare the doors
-	let isInDoorTile = (\(_, tile) -> tile == DoorInH || tile == DoorInV)
-	let isOutDoorTile = (\(_, tile) -> tile == DoorOutH || tile == DoorOutV)
+	let isInDoorTile = (\(_, tile) -> tile `elem` [DoorInH, DoorInV])
+	let isOutDoorTile = (\(_, tile) -> tile `elem` [DoorOutH, DoorOutV])
 	let inDoor = fst$ fromJust$ find isInDoorTile levelMap
 	let outDoor = fst$ fromJust$ find isOutDoorTile levelMap
 	let snakeCells = map (\((dx, dy), visible) ->
-		(((fst inDoor) + dx, (snd inDoor) + dy), visible)) $
+		((fst inDoor + dx, snd inDoor + dy), visible)) $
 			case startDirection of
 				DUp -> [((0, i), i == 0) | i <- [0..(4 + (2 * level))]]
 				DDown -> [((0, -i), i == 0) | i <- [0..(4 + (2 * level))]]
@@ -223,15 +223,15 @@ loadLevel level (state@(GameState {wallStamp})) = do
 		framesToAlignment = 15,
 		holdCount = 0,
 		snakeCells = snakeCells,
-		foodCells = M.fromList$ concatMap (\((x, y), tile) ->
-				if tile == AppleA || tile == AppleB
-					then [((x, y), tile)] else []
-			) levelMap,
-		wallCells = S.fromList$ concatMap (\(cell, tile) ->
-			if (elem tile [WallV, WallH, WallUL, WallUR, WallDR, WallDL,
+		foodCells = M.fromList$ concatMap
+			(\((x, y), tile) -> [((x, y), tile) | tile `elem` [AppleA, AppleB]])
+			levelMap,
+		wallCells = S.fromList$ concatMap
+			(\(cell, tile) -> [cell | tile `elem`
+				[WallV, WallH, WallUL, WallUR, WallDR, WallDL,
 				WallTVU, WallTVD, WallTHL, WallTHR, WallDot,
-				WallXR, WallXL, WallXU, WallXD, WallX])
-				then [cell] else []) levelMap,
+				WallXR, WallXL, WallXU, WallXD, WallX]]
+			) levelMap,
 		inDoor = (fst inDoor, snd inDoor, True),
 		inDoorTile = snd$ fromJust$ find isInDoorTile levelMap,
 		outDoor = (fst outDoor, snd outDoor, False),
