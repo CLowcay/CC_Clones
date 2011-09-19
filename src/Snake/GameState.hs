@@ -16,6 +16,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.module Main where
 -}
 
+{-# LANGUAGE RecordWildCards #-}
+
 module Snake.GameState (
 	Direction(..),
 	GameMode(..), GameState(..),
@@ -48,30 +50,30 @@ data GameMode =
 
 -- The complete state of the game at any point in time
 data GameState = GameState {
-	gs_mode :: GameMode,
-	gs_fastMode :: Bool,
-	gs_highScores :: HighScoreState,
-	gs_wallStamp :: Surface,
-	gs_introMessage :: Surface, gs_introMessage2 :: Surface,
-	gs_highScoreMessage :: Surface,
+	mode :: GameMode,
+	fastMode :: Bool,
+	highScores :: HighScoreState,
+	wallStamp :: Surface,
+	introMessage :: Surface, introMessage2 :: Surface,
+	highScoreMessage :: Surface,
 	-- enqueue on the back, dequeue from the front
-	gs_nextDirections :: Seq.Seq Direction,
-	gs_currentDirection :: Direction,
-	gs_ttFrameSwap :: Integer,
-	gs_framesToAlignment :: Int,
-	gs_holdCount :: Int,
-	gs_snakeCells :: [((Int, Int), Bool)],
-	gs_foodCells :: M.Map (Int, Int) Tile,
-	gs_wallCells :: S.Set (Int, Int),
-	gs_inDoor :: (Int, Int, Bool),
-	gs_inDoorTile :: Tile,
-	gs_outDoor :: (Int, Int, Bool),
-	gs_outDoorTile :: Tile,
-	gs_score :: Int, gs_scoreCounter :: CounterState,
-	gs_loadLevel :: Bool,    -- set to true if the level must be reloaded
-	gs_sfxEvents :: [(Sfx, Channels)],  -- sounds to be played after rendering
-	gs_level :: Int, gs_levelCounter :: CounterState,
-	gs_eatingApples :: [((Int, Int), Tile)]
+	nextDirections :: Seq.Seq Direction,
+	currentDirection :: Direction,
+	ttFrameSwap :: Integer,
+	framesToAlignment :: Int,
+	holdCount :: Int,
+	snakeCells :: [((Int, Int), Bool)],
+	foodCells :: M.Map (Int, Int) Tile,
+	wallCells :: S.Set (Int, Int),
+	inDoor :: (Int, Int, Bool),
+	inDoorTile :: Tile,
+	outDoor :: (Int, Int, Bool),
+	outDoorTile :: Tile,
+	score :: Int, scoreCounter :: CounterState,
+	loadLevel :: Bool,    -- set to true if the level must be reloaded
+	sfxEvents :: [(Sfx, Channels)],  -- sounds to be played after rendering
+	level :: Int, levelCounter :: CounterState,
+	eatingApples :: [((Int, Int), Tile)]
 } deriving (Show)
 
 data Tile = Digits | Paused | SidePanel | GameOverTile |
@@ -117,54 +119,53 @@ getNextDirection currentDirection directions =
 
 -- Update the game state based on a time delta
 updateGame :: Integer -> GameState -> GameState
-updateGame delay (state@(GameState {gs_mode = GameOverMode})) =
+updateGame delay (state@(GameState {mode = GameOverMode})) =
 	let
-		ttFrameSwap = (gs_ttFrameSwap state) - delay
-		done = ttFrameSwap <= 0
+		ttFrameSwap' = (ttFrameSwap state) - delay
+		done = ttFrameSwap' <= 0
 	in state {
-		gs_mode = if done then IntroMode else GameOverMode,
-		gs_level = if done then 0 else gs_level state,
-		gs_loadLevel = if done then True else False,
-		gs_ttFrameSwap = max 0 ttFrameSwap,
-		gs_sfxEvents = [],
-		gs_eatingApples = []
+		mode = if done then IntroMode else GameOverMode,
+		level = if done then 0 else level state,
+		loadLevel = if done then True else False,
+		ttFrameSwap = max 0 ttFrameSwap',
+		sfxEvents = [],
+		eatingApples = []
 	}
-updateGame _ (state@(GameState {gs_mode = PausedMode})) = state
-updateGame _ (state@(GameState {gs_mode = IntroMode})) = state
-updateGame _ (state@(GameState {gs_mode = HighScoreMode})) =
+updateGame _ (state@(GameState {mode = PausedMode})) = state
+updateGame _ (state@(GameState {mode = IntroMode})) = state
+updateGame _ (state@(GameState {mode = HighScoreMode})) =
 	state {
-		gs_sfxEvents = [],
-		gs_eatingApples = []
+		sfxEvents = [],
+		eatingApples = []
 	}
-updateGame delay (state@(GameState {gs_mode = InGameMode})) =
-	let
-		anidiff = (gs_ttFrameSwap state) - delay
-		ttFrameSwap = if anidiff < 0
+updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
+		anidiff = ttFrameSwap - delay
+		ttFrameSwap' = if anidiff < 0
 			then frameDelay + (anidiff `mod` frameDelay)
 			else anidiff
 		advanceFrames = fromInteger$ if anidiff < 0
 			then ((abs anidiff) `div` frameDelay) + 1 else 0
-		offset' = (gs_framesToAlignment state) - advanceFrames
-		framesToAlignment = if offset' < 0
+		offset' = framesToAlignment - advanceFrames
+		framesToAlignment' = if offset' < 0
 			then offset' `mod` 16 else offset'
 		advanceCells = if offset' < 0
 			then ((abs offset') `div` 16) + 1 else 0
 		snakeCells' =
 			hideExitedCells outDoor $
-				advanceAllCells snakeCells (gs_holdCount state) advanceCells
+				advanceAllCells snakeCells holdCount advanceCells
 		eatenApples = concatMap (\(cell, _) ->
 				if M.member cell foodCells then [cell] else []) $
 			take advanceCells snakeCells'
 		eatenApplesValue =
 			sum$ map (\cell -> appleValue (foodCells M.! cell)) eatenApples
-		scoreCounter = if gameOver
-			then resetCounter 0 (gs_scoreCounter state)
-			else addCounter eatenApplesValue (gs_scoreCounter state)
-		level = if (isOpen outDoor') && (all (not.snd) snakeCells)
-			then (gs_level state) + 1 else (gs_level state)
-		levelCounter = if gameOver
-			then resetCounter 0 (gs_levelCounter state)
-			else setCounter level (gs_levelCounter state)
+		scoreCounter' = if gameOver
+			then resetCounter 0 scoreCounter
+			else addCounter eatenApplesValue scoreCounter
+		level' = if (isOpen outDoor') && (all (not.snd) snakeCells)
+			then level + 1 else level
+		levelCounter' = if gameOver
+			then resetCounter 0 levelCounter
+			else setCounter level' levelCounter
 		foodCells' = foldr (M.delete) foodCells eatenApples
 		inDoor' = if ((not$snd$last snakeCells) && (snd$last snakeCells'))
 			then closeDoor inDoor else inDoor
@@ -175,48 +176,40 @@ updateGame delay (state@(GameState {gs_mode = InGameMode})) =
 		newHighScore = isNewHighScore score highScores
 	in
 		state {
-			gs_mode = if gameOver
+			mode = if gameOver
 				then if newHighScore
 					then HighScoreMode else GameOverMode
 				else InGameMode,
-			gs_highScores = if gameOver && newHighScore
+			highScores = if gameOver && newHighScore
 				then insertHighScore score highScores else highScores,
-			gs_framesToAlignment = framesToAlignment,
-			gs_nextDirections =
+			framesToAlignment = framesToAlignment',
+			nextDirections =
 				if advanceCells > 0 then nextDirections' else nextDirections,
-			gs_currentDirection =
+			currentDirection =
 				if advanceCells > 0 then currentDirection' else currentDirection,
-			gs_ttFrameSwap = if gameOver then gameOverDelay else ttFrameSwap,
-			gs_holdCount =
-				(max 0 (gs_holdCount state - advanceCells)) + eatenApplesValue,
-			gs_snakeCells = snakeCells',
-			gs_inDoor = inDoor', gs_outDoor = outDoor',
-			gs_foodCells = foodCells',
-			gs_score = score + eatenApplesValue,
-			gs_scoreCounter = updateCounter delay scoreCounter,
-			gs_levelCounter = updateCounter delay levelCounter,
-			gs_level = level,
-			gs_loadLevel = level /= (gs_level state),
-			gs_eatingApples = if advanceCells > 0
+			ttFrameSwap = if gameOver then gameOverDelay else ttFrameSwap',
+			holdCount =
+				(max 0 (holdCount - advanceCells)) + eatenApplesValue,
+			snakeCells = snakeCells',
+			inDoor = inDoor', outDoor = outDoor',
+			foodCells = foodCells',
+			score = score + eatenApplesValue,
+			scoreCounter = updateCounter delay scoreCounter',
+			levelCounter = updateCounter delay levelCounter',
+			level = level',
+			loadLevel = level' /= level,
+			eatingApples = if advanceCells > 0
 				then map (\cell -> (cell, foodCells M.! cell)) eatenApples
-				else gs_eatingApples state,
-			gs_sfxEvents = concat [
+				else eatingApples,
+			sfxEvents = concat [
 				(if gameOver then [(Bump, SfxChannel2)] else []),
 				(take (length eatenApples) (repeat (Chomp, SfxChannel1)))
 			]
 		}
 	where
-		highScores = gs_highScores state
-		score = gs_score state
-		currentDirection = gs_currentDirection state
-		nextDirections = gs_nextDirections state
 		(currentDirection' :< nextDirections') =
 			getNextDirection currentDirection nextDirections
-		frameDelay = getFrameDelay (gs_level state) (gs_fastMode state)
-		snakeCells = gs_snakeCells state
-		foodCells = gs_foodCells state
-		inDoor = gs_inDoor state
-		outDoor = gs_outDoor state
+		frameDelay = getFrameDelay level fastMode
 		-- Are all the cells we pass over clear of obstructions
 		allClear inDoor' outDoor' advance = all (\a ->
 				isClear (head snakeCells) inDoor' outDoor' a
@@ -228,7 +221,7 @@ updateGame delay (state@(GameState {gs_mode = InGameMode})) =
 				DDown -> (x, y + advance)
 				DLeft -> (x - advance, y)
 				DRight -> (x + advance, y)
-			in (not$S.member cell (gs_wallCells state)) &&
+			in (not$S.member cell wallCells) &&
 				(not$inDoor' == (fst cell, snd cell, False)) &&
 				(not$outDoor' == (fst cell, snd cell, False)) &&
 				(not$any (\(scell, _) -> cell == scell) snakeCells)

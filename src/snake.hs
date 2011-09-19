@@ -16,6 +16,9 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 -}
 
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE RecordWildCards #-}
+
 module Main where
 
 import Common.Counters
@@ -49,7 +52,7 @@ main = do
 	setCaption windowCaption windowCaption
 	assets <- loadAssets
 	state0 <- runReaderT initGameState assets
-	state1 <- runReaderT (loadLevel 0 state0) assets
+	state1 <- runReaderT (Snake.Assets.loadLevel 0 state0) assets
 	time <- getClockTime
 	runReaderT (mainLoop time state1) assets
 	closeAudio
@@ -66,12 +69,12 @@ initSDL = do
 	return ()
 
 -- The initial GameState
-initGameState :: ReaderT Assets IO (GameState)
+initGameState :: ReaderT Assets IO GameState
 initGameState = do
-	Assets {gs_gfx = gfx, gs_font = font} <- ask
+	Assets {..} <- ask
 	liftIO$ do
-		wallStamp <- (createRGBSurface [HWSurface] 480 480 32
-			0x000000FF 0x0000FF00 0x00FF0000 0xFF000000) >>= displayFormat
+		wallStamp <- createRGBSurface [HWSurface] 480 480 32
+			0x000000FF 0x0000FF00 0x00FF0000 0xFF000000 >>= displayFormat
 		highScores <- loadHighScoreTable
 
 		introMessage <- renderUTF8Solid font
@@ -81,29 +84,29 @@ initGameState = do
 		highScoreMessage <- renderUTF8Solid font
 			"New high score! Enter your name" (Color 0 64 255)
 
-		return$ GameState {
-			gs_mode = IntroMode,
-			gs_highScores = highScores,
-			gs_wallStamp = wallStamp,
-			gs_introMessage = introMessage, gs_introMessage2 = introMessage2,
-			gs_highScoreMessage = highScoreMessage,
-			gs_nextDirections = Seq.empty, gs_currentDirection = DUp,
-			gs_ttFrameSwap = 0,
-			gs_fastMode = False,
-			gs_framesToAlignment = 15,
-			gs_holdCount = 0,
-			gs_snakeCells = [],
-			gs_foodCells = M.empty,
-			gs_wallCells = S.empty,
-			gs_inDoor = (0, 0, False),
-			gs_inDoorTile = DoorInV,
-			gs_outDoor = (0, 0, False),
-			gs_outDoorTile = DoorOutV,
-			gs_score = 0, gs_scoreCounter = initCounter (gfx M.! Digits) 5,
-			gs_loadLevel = False,
-			gs_sfxEvents = [],
-			gs_level = 0, gs_levelCounter = initCounter (gfx M.! Digits) 2,
-			gs_eatingApples = []
+		return GameState {
+			mode = IntroMode,
+			highScores = highScores,
+			wallStamp = wallStamp,
+			introMessage = introMessage, introMessage2 = introMessage2,
+			highScoreMessage = highScoreMessage,
+			nextDirections = Seq.empty, currentDirection = DUp,
+			ttFrameSwap = 0,
+			fastMode = False,
+			framesToAlignment = 15,
+			holdCount = 0,
+			snakeCells = [],
+			foodCells = M.empty,
+			wallCells = S.empty,
+			inDoor = (0, 0, False),
+			inDoorTile = DoorInV,
+			outDoor = (0, 0, False),
+			outDoorTile = DoorOutV,
+			score = 0, scoreCounter = initCounter (gfx M.! Digits) 5,
+			loadLevel = False,
+			sfxEvents = [],
+			level = 0, levelCounter = initCounter (gfx M.! Digits) 2,
+			eatingApples = []
 		}
 
 -- The main game loop
@@ -117,11 +120,11 @@ mainLoop time0 state0 = do
 
 	-- Run event handler, which may alter the game state
 	events <- liftIO$pollEvents
-	let (continue, state1) = if (gs_mode state0 == HighScoreMode)
+	let (continue, state1) = if mode state0 == HighScoreMode
 		then let
 			(continue', hstate) = runState
-				(handleEvents highScoreEventHandler events) (gs_highScores state0)
-			in (continue', state0 {gs_highScores = hstate})
+				(handleEvents highScoreEventHandler events) (highScores state0)
+			in (continue', state0 {highScores = hstate})
 		else runState (handleEvents gameEventHandler events) state0
 	state1' <- maybeLoadLevel state1
 
@@ -131,75 +134,72 @@ mainLoop time0 state0 = do
 	
 	-- Manage high score editing
 	let
-		isEditing0 = isEditing$ gs_highScores state0
-		isEditing1 = isEditing$ gs_highScores state2'
-	when (isEditing0 && (not isEditing1)) $ do
-		liftIO$endEditing (gs_highScores state2')
-	when ((not isEditing0) && isEditing1) $ do
+		isEditing0 = isEditing$ highScores state0
+		isEditing1 = isEditing$ highScores state2'
+	when (isEditing0 && not isEditing1) $
+		liftIO$endEditing (highScores state2')
+	when (not isEditing0 && isEditing1) $
 		liftIO$startEditing
 	
 	-- If high score editing is over, go back to IntroMode
-	state3 <- if (isEditing0 && (not isEditing1)) then
-		loadLevel 0 (state2' {gs_mode = IntroMode}) else return state2'
+	state3 <- if isEditing0 && not isEditing1 then
+		Snake.Assets.loadLevel 0 (state2' {mode = IntroMode}) else return state2'
 
-	if continue then mainLoop time1 state3 else return ()
+	when continue $ mainLoop time1 state3
 
 -- Load a new level if required
 maybeLoadLevel :: GameState -> ReaderT Assets IO GameState
-maybeLoadLevel state = if gs_loadLevel state then
-	loadLevel (gs_level state) state else return state
+maybeLoadLevel state = if Snake.GameState.loadLevel state then
+	Snake.Assets.loadLevel (level state) state else return state
 
 -- Handle game events
 gameEventHandler :: EventHandler GameState
 gameEventHandler Quit = return False
 gameEventHandler (KeyDown sym) = do
-	state <- get
-	let currentDirection = gs_currentDirection state
+	state@(GameState {mode, currentDirection}) <- get
 	case (symKey sym) of
 #ifdef CHEATING
 		SDLK_KP_PLUS -> do
 			put$state {
-				gs_level = (gs_level state) + 1,
-				gs_loadLevel = True
+				level = (level state) + 1,
+				Snake.GameState.loadLevel = True
 			}
 			return True
 #endif
 		SDLK_UP -> do
-			put$state {gs_nextDirections = (gs_nextDirections state) |> DUp}
+			put$state {nextDirections = nextDirections state |> DUp}
 			return True
 		SDLK_DOWN -> do
-			put$state {gs_nextDirections = (gs_nextDirections state) |> DDown}
+			put$state {nextDirections = nextDirections state |> DDown}
 			return True
 		SDLK_LEFT -> do
-			put$state {gs_nextDirections = (gs_nextDirections state) |> DLeft}
+			put$state {nextDirections = nextDirections state |> DLeft}
 			return True
 		SDLK_RIGHT -> do
-			put$state {gs_nextDirections = (gs_nextDirections state) |> DRight}
+			put$state {nextDirections = nextDirections state |> DRight}
 			return True
 		SDLK_ESCAPE -> return False
 		SDLK_f -> do
 			put$state {
-				gs_fastMode =
-					(not$ gs_fastMode state) && ((gs_mode state) /= PausedMode)
+				fastMode =
+					not (fastMode state) && (mode /= PausedMode)
 			}
 			return True
 		SDLK_F5 -> do
-			let
-				mode = gs_mode state
 			put$state {
-				gs_mode = if mode == PausedMode
+				mode = if mode == PausedMode
 					then InGameMode
 					else if mode == InGameMode
 						then PausedMode else mode,
-				gs_fastMode = False
+				fastMode = False
 			}
 			return True
 		SDLK_F2 -> do
 			put$state {
-				gs_mode = InGameMode,
-				gs_levelCounter = resetCounter 0 (gs_levelCounter state),
-				gs_scoreCounter = resetCounter 0 (gs_scoreCounter state),
-				gs_level = 1, gs_loadLevel = True, gs_score = 0
+				mode = InGameMode,
+				levelCounter = resetCounter 0 (levelCounter state),
+				scoreCounter = resetCounter 0 (scoreCounter state),
+				level = 1, Snake.GameState.loadLevel = True, score = 0
 			}
 			return True
 		_ -> return True
@@ -208,7 +208,7 @@ gameEventHandler _ = return True
 -- Play currently scheduled sound effects
 playSounds :: GameState -> ReaderT Assets IO ()
 playSounds state = do
-	Assets {gs_sfx = sfx} <- ask
-	liftIO$ forM_ (gs_sfxEvents state) $ \(sound, channel) -> do
+	Assets {..} <- ask
+	liftIO$ forM_ (sfxEvents state) $ \(sound, channel) -> do
 		playChannel (fromEnum channel) (sfx M.! sound) 0
 

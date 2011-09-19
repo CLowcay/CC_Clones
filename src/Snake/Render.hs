@@ -16,6 +16,9 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.module Main where
 -}
 
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE RecordWildCards #-}
+
 module Snake.Render where
 
 import Common.Counters
@@ -32,35 +35,31 @@ import Snake.GameState
 
 -- Render a frame
 renderFrame :: GameState -> ReaderT Assets IO ()
-renderFrame state = do
-	Assets {gs_gfx = gfx, gs_font = font} <- ask
+renderFrame state@(GameState {..}) = do
+	Assets {..} <- ask
 
-	let
-		mode = gs_mode state
-		eatingApples = gs_eatingApples state
-		frame = if not$null eatingApples
-			then ((15 - (gs_framesToAlignment state) + 5) `mod` 16) else 4
+	let frame = if not$null eatingApples
+		then ((15 - framesToAlignment + 5) `mod` 16) else 4
 	display <- liftIO getVideoSurface
 
 	-- render the doors
 	liftIO$ do
-		blitSurface (gs_wallStamp state) Nothing display (Just$ Rect 0 0 0 0)
-		let (x, y, open) = gs_inDoor state in when (not open) $
+		blitSurface wallStamp Nothing display (Just$ Rect 0 0 0 0)
+		let (x, y, open) = inDoor in when (not open) $
 			renderAnimation display 0 (x * 16) (y * 16)
-				(gfx M.! (gs_inDoorTile state))
-		let (x, y, open) = gs_outDoor state in when (not open) $
+				(gfx M.! inDoorTile)
+		let (x, y, open) = outDoor in when (not open) $
 			renderAnimation display 0 (x * 16) (y * 16)
-				(gfx M.! (gs_outDoorTile state))
+				(gfx M.! outDoorTile)
 
 	-- render the side panel
 	liftIO$ do
-		renderCounter (23 + 480) 172 (gs_levelCounter state)
-		renderCounter (84 + 480) 172 (gs_scoreCounter state)
+		renderCounter (23 + 480) 172 levelCounter
+		renderCounter (84 + 480) 172 scoreCounter
 		renderAnimation display 0 480 0 (gfx M.! SidePanel)
 
 	-- render food
 	liftIO$ do
-		let foodCells = gs_foodCells state
 		forM_ (M.keys foodCells) $ \(x, y) -> do
 			renderAnimation display 0 (x * 16) (y * 16)
 				(gfx M.! (foodCells M.! (x, y)))
@@ -75,21 +74,19 @@ renderFrame state = do
 	-- UI elements
 	when (mode == IntroMode) $ liftIO$ do
 		let
-			introMessage = gs_introMessage state
 			w1 = surfaceGetWidth introMessage
-			introMessage2 = gs_introMessage2 state
 		blitSurface introMessage Nothing
 			display (Just$ Rect ((480 - w1) `div` 2) 128 0 0)
 		blitSurface introMessage2 Nothing
 			display (Just$ Rect 32 212 0 0)
 		renderHighScores display 32 260 416 font
-			(Color 0 64 255) (gs_highScores state)
+			(Color 0 64 255) highScores
 	
 	when (mode == HighScoreMode) $ liftIO$ do
-		blitSurface (gs_highScoreMessage state) Nothing
+		blitSurface highScoreMessage Nothing
 			display (Just$ Rect 32 196 0 0)
 		renderHighScores display 32 260 416 font
-			(Color 0 64 255) (gs_highScores state)
+			(Color 0 64 255) highScores
 		return ()
 
 	when (mode == PausedMode) $ liftIO$ do
@@ -104,17 +101,17 @@ renderFrame state = do
 -- Render the snake
 renderSnake :: Surface -> Int -> GameState -> ReaderT Assets IO ()
 renderSnake dst frame state = do
-	Assets {gs_gfx = gfx} <- ask
+	Assets {..} <- ask
 
 	let
-		snakeCells = gs_snakeCells state
+		snakeCells = snakeCells
 		snakeTiles = zip
 			(map (\((x, y), show) -> ((x * 16, y * 16), show)) snakeCells)
 			(inferSnakeTiles (map fst snakeCells))
 		getTile = snd
 		-- offsets for rendering parts of the head
-		offset = gs_framesToAlignment state
-		offsetTail = if (gs_holdCount state > 0) then 0 else 15 - offset
+		offset = framesToAlignment state
+		offsetTail = if (holdCount state > 0) then 0 else 15 - offset
 		offset2 = offset + 3
 		offset3 = offset2 - 16
 		nHeadTiles = if offset3 < 0 ||

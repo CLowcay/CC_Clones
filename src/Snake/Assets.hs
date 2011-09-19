@@ -16,10 +16,13 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.module Main where
 -}
 
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE RecordWildCards #-}
+
 module Snake.Assets (
 	Assets(..),
 	loadAssets,
-	loadLevel
+	Snake.Assets.loadLevel
 ) where
 
 import Common.Assets
@@ -41,9 +44,9 @@ import qualified Data.Set as S
 import Snake.GameState
 
 data Assets = Assets {
-	gs_gfx :: M.Map Tile Animation,
-	gs_sfx :: M.Map Sfx Chunk,
-	gs_font :: Font
+	gfx :: M.Map Tile Animation,
+	sfx :: M.Map Sfx Chunk,
+	font :: Font
 }
 
 -- Load all assets
@@ -53,9 +56,9 @@ loadAssets = do
 	sfx <- loadSounds
 	font <- loadFont
 	return$ Assets {
-		gs_gfx = gfx,
-		gs_sfx = sfx,
-		gs_font = font
+		gfx = gfx,
+		sfx = sfx,
+		font = font
 	}
 
 loadSounds :: IO (M.Map Sfx Chunk)
@@ -151,7 +154,7 @@ loadFont = openFont
 	(getAssetPath "fonts/TitilliumText22L004.otf") 28
 
 loadLevel :: Int -> GameState -> ReaderT Assets IO (GameState)
-loadLevel level state = do
+loadLevel level (state@(GameState {wallStamp})) = do
 	-- load the level file
 	fileData <- fmap lines$
 		liftIO.readFile$ getAssetPath$ "levels/snake" ++ (show level)
@@ -190,9 +193,8 @@ loadLevel level state = do
 		)$ zip [0..] (oddElems line))$ zip [0..] (tail fileData)
 	
 	-- prepare the wallStamp
-	Assets {gs_gfx = gfx} <- ask
+	Assets {gfx} <- ask
 	let
-		wallStamp = gs_wallStamp state
 		noRenderSprites = [DoorInH, DoorInV, DoorOutH, DoorOutV, AppleA, AppleB]
 		toRender = filter (\(_, tile) -> not$tile `elem` noRenderSprites) levelMap
 	liftIO$fillRect wallStamp (Just$ Rect 0 0 480 480) (Pixel 0x00000000)
@@ -215,29 +217,29 @@ loadLevel level state = do
 	
 	-- Initialise the state
 	return$ state {
-		gs_fastMode = False,
-		gs_nextDirections = Seq.empty, gs_currentDirection = startDirection,
-		gs_ttFrameSwap = 0,
-		gs_framesToAlignment = 15,
-		gs_holdCount = 0,
-		gs_snakeCells = snakeCells,
-		gs_foodCells = M.fromList$ concatMap (\((x, y), tile) ->
+		fastMode = False,
+		nextDirections = Seq.empty, currentDirection = startDirection,
+		ttFrameSwap = 0,
+		framesToAlignment = 15,
+		holdCount = 0,
+		snakeCells = snakeCells,
+		foodCells = M.fromList$ concatMap (\((x, y), tile) ->
 				if tile == AppleA || tile == AppleB
 					then [((x, y), tile)] else []
 			) levelMap,
-		gs_wallCells = S.fromList$ concatMap (\(cell, tile) ->
+		wallCells = S.fromList$ concatMap (\(cell, tile) ->
 			if (elem tile [WallV, WallH, WallUL, WallUR, WallDR, WallDL,
 				WallTVU, WallTVD, WallTHL, WallTHR, WallDot,
 				WallXR, WallXL, WallXU, WallXD, WallX])
 				then [cell] else []) levelMap,
-		gs_inDoor = (fst inDoor, snd inDoor, True),
-		gs_inDoorTile = snd$ fromJust$ find isInDoorTile levelMap,
-		gs_outDoor = (fst outDoor, snd outDoor, False),
-		gs_outDoorTile = snd$ fromJust$ find isOutDoorTile levelMap,
-		gs_loadLevel = False,
-		gs_level = level,
-		gs_levelCounter = setCounter level (gs_levelCounter state),
-		gs_eatingApples = []
+		inDoor = (fst inDoor, snd inDoor, True),
+		inDoorTile = snd$ fromJust$ find isInDoorTile levelMap,
+		outDoor = (fst outDoor, snd outDoor, False),
+		outDoorTile = snd$ fromJust$ find isOutDoorTile levelMap,
+		Snake.GameState.loadLevel = False,
+		level = level,
+		levelCounter = setCounter level (levelCounter state),
+		eatingApples = []
 	}
 
 makeAnimation :: Surface -> Int -> Int -> Int -> Int -> Animation
