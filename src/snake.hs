@@ -209,6 +209,6 @@ gameEventHandler _ = return True
 playSounds :: GameState -> ReaderT Assets IO ()
 playSounds state = do
 	Assets {..} <- ask
-	liftIO$ forM_ (sfxEvents state) $ \(sound, channel) -> do
+	liftIO$ forM_ (sfxEvents state) $ \(sound, channel) ->
 		playChannel (fromEnum channel) (sfx M.! sound) 0
 
