@@ -106,10 +106,10 @@ gameOverDelay = ((1::Integer) * 10^12) * 4
 getFrameDelay :: Int -> Bool -> Integer
 getFrameDelay level fastMode = ((1::Integer) * 10^12) `div` divisor
 	where divisor =
-		(((fromIntegral level) * 8) + 32) * (if fastMode then 4 else 1)
+		((fromIntegral level * 8) + 32) * (if fastMode then 4 else 1)
 
 -- Get the next direction from the queue
-getNextDirection :: Direction -> Seq.Seq Direction -> (Seq.ViewL Direction)
+getNextDirection :: Direction -> Seq.Seq Direction -> Seq.ViewL Direction
 getNextDirection currentDirection directions =
 	case Seq.viewl directions of
 		Seq.EmptyL -> currentDirection :< Seq.empty
@@ -121,12 +121,12 @@ getNextDirection currentDirection directions =
 updateGame :: Integer -> GameState -> GameState
 updateGame delay (state@(GameState {mode = GameOverMode})) =
 	let
-		ttFrameSwap' = (ttFrameSwap state) - delay
+		ttFrameSwap' = ttFrameSwap state - delay
 		done = ttFrameSwap' <= 0
 	in state {
 		mode = if done then IntroMode else GameOverMode,
 		level = if done then 0 else level state,
-		loadLevel = if done then True else False,
+		loadLevel = done,
 		ttFrameSwap = max 0 ttFrameSwap',
 		sfxEvents = [],
 		eatingApples = []
@@ -144,35 +144,35 @@ updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
 			then frameDelay + (anidiff `mod` frameDelay)
 			else anidiff
 		advanceFrames = fromInteger$ if anidiff < 0
-			then ((abs anidiff) `div` frameDelay) + 1 else 0
+			then (abs anidiff `div` frameDelay) + 1 else 0
 		offset' = framesToAlignment - advanceFrames
 		framesToAlignment' = if offset' < 0
 			then offset' `mod` 16 else offset'
 		advanceCells = if offset' < 0
-			then ((abs offset') `div` 16) + 1 else 0
+			then (abs offset' `div` 16) + 1 else 0
 		snakeCells' =
 			hideExitedCells outDoor $
 				advanceAllCells snakeCells holdCount advanceCells
-		eatenApples = concatMap (\(cell, _) ->
-				if M.member cell foodCells then [cell] else []) $
+		eatenApples = concatMap
+			(\(cell, _) -> [cell | cell `M.member` foodCells]) $
 			take advanceCells snakeCells'
 		eatenApplesValue =
 			sum$ map (\cell -> appleValue (foodCells M.! cell)) eatenApples
 		scoreCounter' = if gameOver
 			then resetCounter 0 scoreCounter
 			else addCounter eatenApplesValue scoreCounter
-		level' = if (isOpen outDoor') && (all (not.snd) snakeCells)
+		level' = if isOpen outDoor' && all (not.snd) snakeCells
 			then level + 1 else level
 		levelCounter' = if gameOver
 			then resetCounter 0 levelCounter
 			else setCounter level' levelCounter
-		foodCells' = foldr (M.delete) foodCells eatenApples
-		inDoor' = if ((not$snd$last snakeCells) && (snd$last snakeCells'))
+		foodCells' = foldr M.delete foodCells eatenApples
+		inDoor' = if not (snd (last snakeCells)) && snd (last snakeCells')
 			then closeDoor inDoor else inDoor
 		outDoor' = if M.size (M.filter (== AppleA) foodCells') == 0
 			then openDoor outDoor else outDoor
-		gameOver = (snd$head snakeCells') &&
-			(not$allClear inDoor' outDoor' advanceCells)
+		gameOver = snd (head snakeCells') &&
+			not (allClear inDoor' outDoor' advanceCells)
 		newHighScore = isNewHighScore score highScores
 	in
 		state {
@@ -189,7 +189,7 @@ updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
 				if advanceCells > 0 then currentDirection' else currentDirection,
 			ttFrameSwap = if gameOver then gameOverDelay else ttFrameSwap',
 			holdCount =
-				(max 0 (holdCount - advanceCells)) + eatenApplesValue,
+				max 0 (holdCount - advanceCells) + eatenApplesValue,
 			snakeCells = snakeCells',
 			inDoor = inDoor', outDoor = outDoor',
 			foodCells = foodCells',
@@ -201,19 +201,17 @@ updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
 			eatingApples = if advanceCells > 0
 				then map (\cell -> (cell, foodCells M.! cell)) eatenApples
 				else eatingApples,
-			sfxEvents = concat [
-				(if gameOver then [(Bump, SfxChannel2)] else []),
-				(take (length eatenApples) (repeat (Chomp, SfxChannel1)))
-			]
+			sfxEvents = 
+				[(Bump, SfxChannel2) | gameOver] ++
+				replicate (length eatenApples) (Chomp, SfxChannel1)
 		}
 	where
 		(currentDirection' :< nextDirections') =
 			getNextDirection currentDirection nextDirections
 		frameDelay = getFrameDelay level fastMode
 		-- Are all the cells we pass over clear of obstructions
-		allClear inDoor' outDoor' advance = all (\a ->
-				isClear (head snakeCells) inDoor' outDoor' a
-			) [1 .. advance]
+		allClear inDoor' outDoor' advance = all
+			(isClear (head snakeCells) inDoor' outDoor') [1 .. advance]
 		-- Is a cell clear of obstruction
 		isClear ((x, y), _) inDoor' outDoor' advance =
 			let cell = case currentDirection' of
@@ -221,10 +219,10 @@ updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
 				DDown -> (x, y + advance)
 				DLeft -> (x - advance, y)
 				DRight -> (x + advance, y)
-			in (not$S.member cell wallCells) &&
-				(not$inDoor' == (fst cell, snd cell, False)) &&
-				(not$outDoor' == (fst cell, snd cell, False)) &&
-				(not$any (\(scell, _) -> cell == scell) snakeCells)
+			in not (cell `S.member` wallCells) &&
+				inDoor' /= (fst cell, snd cell, False) &&
+				outDoor' /= (fst cell, snd cell, False) &&
+				any (\(scell, _) -> cell /= scell) snakeCells
 		-- Hide snake cells that have passed through the exit
 		hideExitedCells (x, y, _) snake =
 			reverse (hideExitedCells0 (reverse snake) False True)
@@ -232,8 +230,8 @@ updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
 				hideExitedCells0 [] passed isTail = []
 				hideExitedCells0 (((cx, cy), visible):cells) passed isTail =
 					let passed' = ((cx == x && cy == y) || passed) in
-						((cx, cy), visible && (not (if isTail then passed' else passed))):
-							(hideExitedCells0 cells passed' False)
+						((cx, cy), visible && not (if isTail then passed' else passed)) :
+							hideExitedCells0 cells passed' False
 		-- Advance the snake multiple cells
 		advanceAllCells snake holdCount 0 = snake
 		advanceAllCells snake holdCount n =
@@ -241,10 +239,10 @@ updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
 		-- Advance the snake a single cell
 		advanceCell (h@((x, y), _):body) holdCount =
 			case currentDirection' of
-				DUp -> ((x, y - 1), True):h:(nextBody holdCount body)
-				DDown -> ((x, y + 1), True):h:(nextBody holdCount body)
-				DLeft -> ((x - 1, y), True):h:(nextBody holdCount body)
-				DRight -> ((x + 1, y), True):h:(nextBody holdCount body)
+				DUp -> ((x, y - 1), True) : h : nextBody holdCount body
+				DDown -> ((x, y + 1), True) : h : nextBody holdCount body
+				DLeft -> ((x - 1, y), True) : h : nextBody holdCount body
+				DRight -> ((x + 1, y), True) : h : nextBody holdCount body
 		-- Get the next body of the snake, accounting for growth
 		nextBody holdCount body =
 			if holdCount > 0 then body else Prelude.init body
@@ -263,7 +261,7 @@ inferSnakeTiles cells =
 		[(0, 0), (0, 1)] -> HeadUp
 		[(0, 0), (0, -1)] -> HeadDown
 		x -> traceShow x (error "Invalid diffs for head")
-	) : (map (\xs -> case (diffs xs) of
+	) : map (\xs -> case (diffs xs) of
 		[(0, 0), (1, 0), (1, 0)] -> SnakeH
 		[(0, 0), (-1, 0), (-1, 0)] -> SnakeH
 		[(0, 0), (0, 1), (0, 1)] -> SnakeV
@@ -277,8 +275,8 @@ inferSnakeTiles cells =
 		[(0, 0), (0, 1), (-1, 0)] -> SnakeDR
 		[(0, 0), (1, 0), (0, -1)] -> SnakeDR
 		x -> traceShow x (error "Invalid diffs for body")
-	) (slidingWindow 3 cells)) ++
-	(case (diffs$ drop ((length cells) - 2) cells) of
+	) (slidingWindow 3 cells) ++
+	(case (diffs$ drop (length cells - 2) cells) of
 		[(0, 0), (1, 0)] -> [SnakeTHR]
 		[(0, 0), (-1, 0)] -> [SnakeTHL]
 		[(0, 0), (0, 1)] -> [SnakeTVD]
@@ -287,6 +285,6 @@ inferSnakeTiles cells =
 	)
 	where
 		diffs xs = reverse$snd$ foldl
-			(\((x0, y0), rs) -> \(x, y) -> ((x, y), (x - x0, y - y0):rs))
+			(\((x0, y0), rs) (x, y) -> ((x, y), (x - x0, y - y0):rs))
 			(head xs, []) xs
 
