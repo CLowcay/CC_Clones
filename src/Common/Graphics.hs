@@ -30,7 +30,7 @@ data Animation = Animation {
 renderAnimation :: Surface -> Int -> Int -> Int -> Animation -> IO ()
 renderAnimation dst frame x y animation = do
 	blitSurface
-		(surface animation) (Just$ (frames animation) ! frame)
+		(surface animation) (Just$ frames animation ! frame)
 		dst (Just$ Rect x y 0 0)
 	return ()
 
@@ -38,7 +38,7 @@ renderAnimation dst frame x y animation = do
 renderAnimationLoopV :: Surface -> Int ->
 	Int -> Int -> Int -> Animation -> IO ()
 renderAnimationLoopV dst frame x y offset animation = do
-	let srect = (frames animation) ! frame
+	let srect = frames animation ! frame
 	blitSurface
 		(surface animation) (Just$ srect {
 			rectY = rectY srect + offset,
