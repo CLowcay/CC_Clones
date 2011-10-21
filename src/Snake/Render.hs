@@ -99,11 +99,10 @@ renderFrame state@(GameState {..}) = do
 
 -- Render the snake
 renderSnake :: Surface -> Int -> GameState -> ReaderT Assets IO ()
-renderSnake dst frame state = do
+renderSnake dst frame (state@(GameState {snakeCells})) = do
 	Assets {..} <- ask
 
 	let
-		snakeCells = snakeCells
 		snakeTiles = zip
 			(map (\((x, y), show) -> ((x * 16, y * 16), show)) snakeCells)
 			(inferSnakeTiles (map fst snakeCells))
