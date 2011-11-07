@@ -228,7 +228,7 @@ updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
 			in not (cell `S.member` wallCells) &&
 				inDoor' /= (fst cell, snd cell, False) &&
 				outDoor' /= (fst cell, snd cell, False) &&
-				any (\(scell, _) -> cell /= scell) snakeCells
+				all (\(scell, _) -> cell /= scell) snakeCells
 		-- Hide snake cells that have passed through the exit
 		hideExitedCells (x, y, _) snake =
 			reverse (hideExitedCells0 (reverse snake) False True)
