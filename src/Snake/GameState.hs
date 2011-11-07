@@ -44,6 +44,11 @@ import qualified Data.Set as S
 data Direction = DLeft | DRight | DUp | DDown
 	deriving (Enum, Eq, Ord, Show)
 
+oppositeDirection DLeft = DRight
+oppositeDirection DRight = DLeft
+oppositeDirection DUp = DDown
+oppositeDirection DDown = DUp
+
 data GameMode =
 	IntroMode | InGameMode | PausedMode | GameOverMode | HighScoreMode
 	deriving (Enum, Eq, Show)
@@ -113,7 +118,8 @@ getNextDirection :: Direction -> Seq.Seq Direction -> Seq.ViewL Direction
 getNextDirection currentDirection directions =
 	case Seq.viewl directions of
 		Seq.EmptyL -> currentDirection :< Seq.empty
-		(direction :< directions') -> if direction == currentDirection
+		(direction :< directions') -> if direction == currentDirection ||
+				oppositeDirection direction == currentDirection
 			then getNextDirection currentDirection directions'
 			else Seq.viewl directions
 
