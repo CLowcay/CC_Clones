@@ -64,7 +64,7 @@ data GameState = GameState {
 	-- enqueue on the back, dequeue from the front
 	nextDirections :: Seq.Seq Direction,
 	currentDirection :: Direction,
-	ttFrameSwap :: Integer,
+	ttFrameSwap :: Int,
 	framesToAlignment :: Int,
 	holdCount :: Int,
 	snakeCells :: [((Int, Int), Bool)],
@@ -103,15 +103,15 @@ appleValue :: Tile -> Int
 appleValue AppleA = 1
 appleValue AppleB = 5
 
--- How long to display the game over message, in picoseconds
-gameOverDelay :: Integer
-gameOverDelay = ((1::Integer) * 10^12) * 4
+-- How long to display the game over message, in milliseconds
+gameOverDelay :: Int
+gameOverDelay = (1 * 10^3) * 4
 
--- The delay for snake frames, in picoseconds
-getFrameDelay :: Int -> Bool -> Integer
-getFrameDelay level fastMode = ((1::Integer) * 10^12) `div` divisor
+-- The delay for snake frames, in milliseconds
+getFrameDelay :: Int -> Bool -> Int
+getFrameDelay level fastMode = (1 * 10^3) `div` divisor
 	where divisor =
-		((fromIntegral level * 8) + 32) * (if fastMode then 4 else 1)
+		((level * 8) + 32) * (if fastMode then 4 else 1)
 
 -- Get the next direction from the queue
 getNextDirection :: Direction -> Seq.Seq Direction -> Seq.ViewL Direction
@@ -124,7 +124,7 @@ getNextDirection currentDirection directions =
 			else Seq.viewl directions
 
 -- Update the game state based on a time delta
-updateGame :: Integer -> GameState -> GameState
+updateGame :: Int -> GameState -> GameState
 updateGame delay (state@(GameState {mode = GameOverMode})) =
 	let
 		ttFrameSwap' = ttFrameSwap state - delay
@@ -149,7 +149,7 @@ updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
 		ttFrameSwap' = if anidiff < 0
 			then frameDelay + (anidiff `mod` frameDelay)
 			else anidiff
-		advanceFrames = fromInteger$ if anidiff < 0
+		advanceFrames = if anidiff < 0
 			then (abs anidiff `div` frameDelay) + 1 else 0
 		offset' = framesToAlignment - advanceFrames
 		framesToAlignment' = if offset' < 0

@@ -33,6 +33,7 @@ import Control.Monad.Trans.Reader
 import Data.Sequence ((|>), (<|))
 import Graphics.UI.SDL
 import Graphics.UI.SDL.Mixer
+import Graphics.UI.SDL.Time
 import Graphics.UI.SDL.TTF
 import qualified Data.Map as M
 import qualified Data.Sequence as Seq
@@ -40,7 +41,6 @@ import qualified Data.Set as S
 import Snake.Assets
 import Snake.GameState
 import Snake.Render
-import Time
 
 windowCaption :: String
 windowCaption = "Snake"
@@ -53,7 +53,7 @@ main = do
 	assets <- loadAssets
 	state0 <- runReaderT initGameState assets
 	state1 <- runReaderT (Snake.Assets.loadLevel 0 state0) assets
-	time <- getClockTime
+	time <- fmap fromIntegral$ getTicks
 	runReaderT (mainLoop time state1) assets
 	closeAudio
 	Graphics.UI.SDL.quit
@@ -110,13 +110,13 @@ initGameState = do
 		}
 
 -- The main game loop
-mainLoop :: ClockTime -> GameState -> ReaderT Assets IO ()
+mainLoop :: Int -> GameState -> ReaderT Assets IO ()
 mainLoop time0 state0 = do
 	playSounds state0
 	renderFrame state0
 
-	time1 <- liftIO$getClockTime
-	let delay = clockTimeDiff time0 time1
+	time1 <- fmap fromIntegral$ liftIO$getTicks
+	let delay = time1 - time0
 
 	-- Run event handler, which may alter the game state
 	events <- liftIO$pollEvents

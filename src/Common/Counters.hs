@@ -34,7 +34,7 @@ data CounterState = CounterState {
 	digits :: Animation,
 	display :: Int,
 	target :: Int,
-	ttFrameSwap :: Integer,
+	ttFrameSwap :: Int,
 	framesToAlignment :: Int,
 	nDigits :: Int,
 	changedDigits :: [Bool]
@@ -50,16 +50,16 @@ initCounter digits nDigits = CounterState {
 	changedDigits = replicate nDigits False
 }
 
--- The delay for counter frames, in picoseconds
-frameDelay :: Integer
-frameDelay = ((1::Integer) * 10^12) `div` (4 * 18)
+-- The delay for counter frames, in milliseconds
+frameDelay :: Int
+frameDelay = (1 * 10^3) `div` (4 * 18)
 
 -- Update a counter state based on a time delta
-updateCounter :: Integer -> CounterState -> CounterState
+updateCounter :: Int -> CounterState -> CounterState
 updateCounter delay (state@CounterState {..}) =
 	let
 		anidiff = ttFrameSwap - delay
-		advanceFrames = fromInteger$ if anidiff < 0
+		advanceFrames = if anidiff < 0
 			then abs anidiff `div` frameDelay + 1 else 0
 		offset' = framesToAlignment - advanceFrames
 		framesToAlignment' = if offset' < 0
