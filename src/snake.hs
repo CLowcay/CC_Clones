@@ -30,13 +30,12 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.State hiding (liftIO)
 import Control.Monad.Trans.Reader
-import Data.Sequence ((|>), (<|))
 import Graphics.UI.SDL
 import Graphics.UI.SDL.Mixer
 import Graphics.UI.SDL.Time
 import Graphics.UI.SDL.TTF
+import qualified Common.Queue as Q
 import qualified Data.Map as M
-import qualified Data.Sequence as Seq
 import qualified Data.Set as S
 import Snake.Assets
 import Snake.GameState
@@ -90,7 +89,7 @@ initGameState = do
 			wallStamp = wallStamp,
 			introMessage = introMessage, introMessage2 = introMessage2,
 			highScoreMessage = highScoreMessage,
-			nextDirections = Seq.empty, currentDirection = DUp,
+			nextDirections = Q.empty, currentDirection = DUp,
 			ttFrameSwap = 0,
 			fastMode = False,
 			framesToAlignment = 15,
@@ -167,16 +166,16 @@ gameEventHandler (KeyDown sym) = do
 			return True
 #endif
 		SDLK_UP -> do
-			put$state {nextDirections = nextDirections state |> DUp}
+			put$state {nextDirections = Q.enqueue (nextDirections state) DUp}
 			return True
 		SDLK_DOWN -> do
-			put$state {nextDirections = nextDirections state |> DDown}
+			put$state {nextDirections = Q.enqueue (nextDirections state) DDown}
 			return True
 		SDLK_LEFT -> do
-			put$state {nextDirections = nextDirections state |> DLeft}
+			put$state {nextDirections = Q.enqueue (nextDirections state) DLeft}
 			return True
 		SDLK_RIGHT -> do
-			put$state {nextDirections = nextDirections state |> DRight}
+			put$state {nextDirections = Q.enqueue (nextDirections state) DRight}
 			return True
 		SDLK_ESCAPE -> return False
 		SDLK_f -> do

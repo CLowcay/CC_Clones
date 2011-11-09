@@ -32,13 +32,12 @@ import Common.HighScores
 import Common.Util
 import Data.List
 import Data.Maybe
-import Data.Sequence (ViewL((:<)))
 import Debug.Trace
 import Graphics.UI.SDL
 import Graphics.UI.SDL.Mixer
 import Graphics.UI.SDL.TTF
+import qualified Common.Queue as Q
 import qualified Data.Map as M
-import qualified Data.Sequence as Seq
 import qualified Data.Set as S
 
 data Direction = DLeft | DRight | DUp | DDown
@@ -62,7 +61,7 @@ data GameState = GameState {
 	introMessage :: Surface, introMessage2 :: Surface,
 	highScoreMessage :: Surface,
 	-- enqueue on the back, dequeue from the front
-	nextDirections :: Seq.Seq Direction,
+	nextDirections :: Q.Queue Direction,
 	currentDirection :: Direction,
 	ttFrameSwap :: Int,
 	framesToAlignment :: Int,
@@ -114,14 +113,16 @@ getFrameDelay level fastMode = (1 * 10^3) `div` divisor
 		((level * 8) + 32) * (if fastMode then 4 else 1)
 
 -- Get the next direction from the queue
-getNextDirection :: Direction -> Seq.Seq Direction -> Seq.ViewL Direction
+getNextDirection ::
+	Direction -> Q.Queue Direction -> (Direction, Q.Queue Direction)
 getNextDirection currentDirection directions =
-	case Seq.viewl directions of
-		Seq.EmptyL -> currentDirection :< Seq.empty
-		(direction :< directions') -> if direction == currentDirection ||
-				oppositeDirection direction == currentDirection
-			then getNextDirection currentDirection directions'
-			else Seq.viewl directions
+	if Q.null directions then (currentDirection, Q.empty) else
+		case Q.dequeue directions of
+			(direction, directions') ->
+				if direction == currentDirection ||
+					oppositeDirection direction == currentDirection
+				then getNextDirection currentDirection directions'
+				else (direction, directions')
 
 -- Update the game state based on a time delta
 updateGame :: Int -> GameState -> GameState
@@ -212,7 +213,7 @@ updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
 				replicate (length eatenApples) (Chomp, SfxChannel1)
 		}
 	where
-		(currentDirection' :< nextDirections') =
+		(currentDirection', nextDirections') =
 			getNextDirection currentDirection nextDirections
 		frameDelay = getFrameDelay level fastMode
 		-- Are all the cells we pass over clear of obstructions

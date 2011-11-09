@@ -38,8 +38,8 @@ import Data.Maybe
 import Graphics.UI.SDL
 import Graphics.UI.SDL.Mixer
 import Graphics.UI.SDL.TTF
+import qualified Common.Queue as Q
 import qualified Data.Map as M
-import qualified Data.Sequence as Seq
 import qualified Data.Set as S
 import Snake.GameState
 
@@ -218,7 +218,7 @@ loadLevel level (state@(GameState {wallStamp})) = do
 	-- Initialise the state
 	return$ state {
 		fastMode = False,
-		nextDirections = Seq.empty, currentDirection = startDirection,
+		nextDirections = Q.empty, currentDirection = startDirection,
 		ttFrameSwap = 0,
 		framesToAlignment = 15,
 		holdCount = 0,
