@@ -20,7 +20,7 @@ cp src_assets/fonts/titillium/*.otf build/assets/fonts
 cp src_assets/highscores build/assets
 
 if [ ! -d build ]; then mkdir build; fi
-for exe in snake; do
+for exe in snake tetris; do
 	ghc -cpp -DASSET_PREFIX="\"./assets/\"" $debug $cheating \
 		-ibuild:src -outputdir build \
 		--make src/$exe.hs -o build/$exe

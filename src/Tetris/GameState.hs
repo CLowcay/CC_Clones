@@ -20,25 +20,34 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 module Tetris.GameState (
 	GameMode(..), GameState(..),
-	Sfx(..), Channels(..)
+	Sfx(..), Channels(..),
+	Tile(..), Brick(..), Rotation(..),
+	allTiles
 ) where
 
 import Common.Counters
 import Data.Array
+import qualified Common.Queue as Q
 
 data GameMode =
 	IntroMode | InGameMode | PausedMode | GameOverMode | HighScoreMode
 	deriving (Enum, Eq, Show)
 
-data Tile = RedTile | PinkTile | YellowTile |
+data Tile = Digits | Paused | GameOverTile |
+	RedTile | PinkTile | YellowTile |
 	OrangeTile | BlueTile | GreyTile | GreenTile
+	deriving (Enum, Ord, Eq, Show)
+allTiles = enumFrom Digits   -- A list of all the tiles
+
 data Brick = IBrick | JBrick | LBrick | OBrick | SBrick | TBrick | ZBrick
+	deriving (Enum, Ord, Eq, Show)
 data Rotation = RUp | RDown | RLeft | RRight
+	deriving (Enum, Ord, Eq, Show)
 
 -- The complete state of the game at any point in time
 data GameState = GameState {
 	mode :: GameMode,
-	-- brickQueue :: Queue Brick,
+	brickQueue :: Q.Queue Brick,
 	currentBrick :: Brick,
 	currentRotation :: Rotation,
 	currentHeight :: Int,
@@ -48,10 +57,10 @@ data GameState = GameState {
 	framesToAlignment :: Int,
 	score :: Int, scoreCounter :: CounterState,
 	sfxEvents :: [(Sfx, Channels)],  -- sounds to be played after rendering
-	level :: Int, levelCounter :: CounterState,
+	level :: Int, levelCounter :: CounterState
 } deriving (Show)
 
-data Sfx = Turn | Line
+data Sfx = SfxTurn | SfxLine
 	deriving (Enum, Ord, Eq, Show)
 
 data Channels = SfxChannel | ChannelCount
