@@ -22,11 +22,12 @@ module Tetris.GameState (
 	GameMode(..), GameState(..),
 	Sfx(..), Channels(..),
 	Tile(..), Brick(..), Rotation(..),
-	allTiles
+	allTiles, clearField
 ) where
 
 import Common.Counters
 import Data.Array
+import Data.Maybe
 import qualified Common.Queue as Q
 
 data GameMode =
@@ -52,7 +53,7 @@ data GameState = GameState {
 	currentRotation :: Rotation,
 	currentHeight :: Int,
 	currentPos :: Int,
-	field :: [Array Int Tile],
+	field :: [Array Int (Maybe Tile)],
 	ttFrameSwap :: Int,
 	framesToAlignment :: Int,
 	score :: Int, scoreCounter :: CounterState,
@@ -60,9 +61,13 @@ data GameState = GameState {
 	level :: Int, levelCounter :: CounterState
 } deriving (Show)
 
+clearField :: [Array Int (Maybe Tile)]
+clearField = replicate 24 (listArray (0, 9) (replicate 10 Nothing))
+
 data Sfx = SfxTurn | SfxLine
 	deriving (Enum, Ord, Eq, Show)
 
 data Channels = SfxChannel | ChannelCount
 	deriving (Enum, Ord, Eq, Show)
+
 

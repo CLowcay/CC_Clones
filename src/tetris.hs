@@ -72,7 +72,7 @@ initGameState = do
 		currentRotation = RUp,
 		currentHeight = 0,
 		currentPos = 0,
-		field = [],
+		field = clearField,
 		ttFrameSwap = 0,
 		framesToAlignment = 0,
 		score = 0, scoreCounter = initCounter (gfx M.! Digits) 5,
