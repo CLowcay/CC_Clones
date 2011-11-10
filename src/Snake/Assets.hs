@@ -86,18 +86,10 @@ loadSprites = do
 			headDown, headLeft, headRight, headUp]
 
 	let
-		tileAnimation Digits = Animation {
-		 	surface = digits,
-		 	frames = listArray (0, 0) [Rect 0 0 20 180]}
-		tileAnimation Paused = Animation {
-		 	surface = paused,
-		 	frames = listArray (0, 0) [Rect 0 0 234 160]}
-		tileAnimation GameOverTile = Animation {
-			surface = gameOver,
-			frames = listArray (0, 0) [Rect 0 0 200 64]}
-		tileAnimation SidePanel = Animation {
-		 	surface = sidePanel,
-		 	frames = listArray (0, 0) [Rect 0 0 200 480]}
+		tileAnimation Digits = makeAnimation digits 20 180 0 0 
+		tileAnimation Paused = makeAnimation paused 234 160 0 0 
+		tileAnimation GameOverTile = makeAnimation gameOver 200 64 0 0 
+		tileAnimation SidePanel = makeAnimation sidePanel 200 480 0 0 
 		tileAnimation HeadDown = Animation {
 		 	surface = headDown,
 		 	frames = listArray (0, 15) (map (\n ->
