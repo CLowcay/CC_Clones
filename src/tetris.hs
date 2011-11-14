@@ -35,6 +35,7 @@ import qualified Common.Queue as Q
 import qualified Data.Map as M
 import Tetris.Assets
 import Tetris.GameState
+import Tetris.Render
 
 windowCaption :: String
 windowCaption = "Tetris"
