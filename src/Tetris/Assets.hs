@@ -39,6 +39,9 @@ data Assets = Assets {
 	font :: Font
 }
 
+tileW = 26 :: Int
+tileH = 26 :: Int
+
 -- Load all assets
 loadAssets :: IO Assets
 loadAssets = do
@@ -79,13 +82,13 @@ loadSprites = do
 		tileAnimation Digits = makeAnimation digits 20 180 0 0
 		tileAnimation Paused = makeAnimation paused 234 160 0 0
 		tileAnimation GameOverTile = makeAnimation gameOver 200 64 0 0
-		tileAnimation RedTile = makeAnimation redTile 26 26 0 0
-		tileAnimation PinkTile = makeAnimation pinkTile 26 26 0 0
-		tileAnimation YellowTile = makeAnimation yellowTile 26 26 0 0
-		tileAnimation OrangeTile = makeAnimation orangeTile 26 26 0 0
-		tileAnimation BlueTile = makeAnimation blueTile 26 26 0 0
-		tileAnimation GreyTile = makeAnimation greyTile 26 26 0 0
-		tileAnimation GreenTile = makeAnimation greenTile 26 26 0 0
+		tileAnimation RedTile = makeAnimation redTile tileW tileH 0 0
+		tileAnimation PinkTile = makeAnimation pinkTile tileW tileH 0 0
+		tileAnimation YellowTile = makeAnimation yellowTile tileW tileH 0 0
+		tileAnimation OrangeTile = makeAnimation orangeTile tileW tileH 0 0
+		tileAnimation BlueTile = makeAnimation blueTile tileW tileH 0 0
+		tileAnimation GreyTile = makeAnimation greyTile tileW tileH 0 0
+		tileAnimation GreenTile = makeAnimation greenTile tileW tileH 0 0
 
 	return$ M.fromList$ map (\tile ->
 		(tile, tileAnimation tile)) allTiles

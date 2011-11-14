@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 {-# LANGUAGE RecordWildCards #-}
 
 module Tetris.Render (
+	renderFrame
 ) where
 
 import Common.Graphics
@@ -32,6 +33,9 @@ import qualified Data.Map as M
 import Tetris.Assets
 import Tetris.GameState
 
+fieldX = 0 :: Int
+fieldY = 0 :: Int
+
 -- Render a frame
 renderFrame :: GameState -> ReaderT Assets IO ()
 renderFrame state@(GameState {..}) = do
@@ -39,6 +43,14 @@ renderFrame state@(GameState {..}) = do
 	display <- liftIO getVideoSurface
 
 	-- render field
+	forM ([0..] `zip` (drop 2 field)) (\(y, line) ->
+		forM (assocs line) (\(x, tm) ->
+			case tm of
+				Nothing -> return ()
+				Just tile -> renderAnimation display 0
+					(fieldX + (x * tileW)) (fieldY + (y * tileH))
+					(gfx M.! tile)
+	))
 
 	-- render brick
 
