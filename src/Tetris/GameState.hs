@@ -22,7 +22,7 @@ module Tetris.GameState (
 	GameMode(..), GameState(..),
 	Sfx(..), Channels(..),
 	Tile(..), Brick(..), Rotation(..),
-	allTiles, clearField
+	allTiles, clearField, srsCoords, tile
 ) where
 
 import Common.Counters
@@ -70,4 +70,48 @@ data Sfx = SfxTurn | SfxLine
 data Channels = SfxChannel | ChannelCount
 	deriving (Enum, Ord, Eq, Show)
 
+-- Coordinates of tiles according to the SRS rotation scheme
+-- coords are relative to a 4x4 grid.  See http://tetris.wikia.com/wiki/SRS
+srsCoords :: Brick -> Rotation -> [(Int, Int)]
+srsCoords IBrick RUp = [(0, 1), (1, 1), (2, 1), (3, 1)]
+srsCoords IBrick RRight = [(2, 0), (2, 1), (2, 2), (2, 3)]
+srsCoords IBrick RDown = [(0, 2), (1, 2), (2, 2), (3, 2)]
+srsCoords IBrick RLeft = [(1, 0), (1, 1), (1, 2), (1, 3)]
+
+srsCoords JBrick RUp = [(0, 0), (0, 1), (1, 1), (2, 1)]
+srsCoords JBrick RRight = [(1, 0), (2, 0), (1, 1), (1, 2)]
+srsCoords JBrick RDown = [(0, 1), (1, 1), (2, 1), (2, 2)]
+srsCoords JBrick RLeft = [(1, 0), (1, 1), (1, 2), (0, 2)]
+
+srsCoords LBrick RUp = [(0, 1), (1, 1), (2, 1), (2, 0)]
+srsCoords LBrick RRight = [(1, 0), (1, 1), (1, 2), (2, 2)]
+srsCoords LBrick RDown = [(0, 2), (0, 1), (1, 1), (2, 1)]
+srsCoords LBrick RLeft = [(0, 0), (1, 0), (1, 1), (1, 2)]
+
+srsCoords OBrick _ = [(1, 0), (2, 0), (2, 1), (1, 1)]
+
+srsCoords SBrick RUp = [(0, 1), (1, 1), (1, 0), (2, 0)]
+srsCoords SBrick RRight = [(1, 0), (1, 1), (2, 1), (2, 2)]
+srsCoords SBrick RDown = [(0, 2), (1, 2), (1, 1), (2, 1)]
+srsCoords SBrick RLeft = [(0, 0), (0, 1), (1, 1), (1, 2)]
+
+srsCoords TBrick RUp = [(1, 0), (0, 1), (1, 1), (2, 1)]
+srsCoords TBrick RRight = [(2, 1), (1, 0), (1, 1), (1, 2)]
+srsCoords TBrick RDown = [(1, 2), (0, 1), (1, 1), (2, 1)]
+srsCoords TBrick RLeft = [(0, 1), (1, 0), (1, 1), (1, 2)]
+
+srsCoords ZBrick RUp = [(0, 0), (1, 0), (1, 1), (2, 1)]
+srsCoords ZBrick RRight = [(2, 0), (2, 1), (1, 1), (1, 2)]
+srsCoords ZBrick RDown = [(0, 1), (1, 1), (1, 2), (2, 2)]
+srsCoords ZBrick RLeft = [(1, 0), (1, 1), (0, 1), (0, 2)]
+
+-- Define the colours of the bricks
+tile :: Brick -> Tile
+tile IBrick = RedTile 
+tile JBrick = PinkTile 
+tile LBrick = YellowTile 
+tile OBrick = OrangeTile 
+tile SBrick = BlueTile 
+tile TBrick = GreyTile 
+tile ZBrick = GreenTile
 
