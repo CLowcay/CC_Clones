@@ -22,6 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 module Tetris.Assets (
 	Assets(..),
 	loadAssets,
+	tileW, tileH
 ) where
 
 import Common.Assets

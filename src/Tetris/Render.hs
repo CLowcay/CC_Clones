@@ -43,14 +43,13 @@ renderFrame state@(GameState {..}) = do
 	display <- liftIO getVideoSurface
 
 	-- render field
-	forM ([0..] `zip` (drop 2 field)) (\(y, line) ->
-		forM (assocs line) (\(x, tm) ->
+	forM_ ([0..] `zip` drop 2 field) $ \(y, line) ->
+		forM_ (assocs line) $ \(x, tm) -> liftIO$
 			case tm of
 				Nothing -> return ()
 				Just tile -> renderAnimation display 0
 					(fieldX + (x * tileW)) (fieldY + (y * tileH))
 					(gfx M.! tile)
-	))
 
 	-- render brick
 
