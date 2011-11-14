@@ -36,6 +36,9 @@ import Tetris.GameState
 fieldX = 0 :: Int
 fieldY = 0 :: Int
 
+realX x = fieldX + (x * tileW)
+realY y = fieldY + (y * tileH)
+
 -- Render a frame
 renderFrame :: GameState -> ReaderT Assets IO ()
 renderFrame state@(GameState {..}) = do
@@ -48,10 +51,17 @@ renderFrame state@(GameState {..}) = do
 			case tm of
 				Nothing -> return ()
 				Just tile -> renderAnimation display 0
-					(fieldX + (x * tileW)) (fieldY + (y * tileH))
-					(gfx M.! tile)
+					(realX x) (realY y) (gfx M.! tile)
 
 	-- render brick
+	let
+		brickCoords =
+			map (\(x, y) -> (x + currentPos, y + currentHeight - 2)) $
+				srsCoords currentBrick currentRotation
+		brickAni = gfx M.! (tile currentBrick)
+	forM_ brickCoords $ \(x, y) -> liftIO$
+		renderAnimation display 0
+			(realX x) (realY y) (brickAni)
 
 	when (mode == PausedMode) $ liftIO$
 		renderAnimation display 0 123 160 (gfx M.! Paused)
