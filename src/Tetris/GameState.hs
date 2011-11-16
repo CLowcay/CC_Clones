@@ -59,7 +59,8 @@ data GameState = GameState {
 	framesToAlignment :: Int,
 	score :: Int, scoreCounter :: CounterState,
 	sfxEvents :: [(Sfx, Channels)],  -- sounds to be played after rendering
-	level :: Int, levelCounter :: CounterState
+	level :: Int, levelCounter :: CounterState,
+	dropKey :: Bool
 } deriving (Show)
 
 clearField :: [Array Int (Maybe Tile)]
@@ -118,4 +119,45 @@ tile OBrick = OrangeTile
 tile SBrick = BlueTile 
 tile TBrick = GreyTile 
 tile ZBrick = GreenTile
+
+-- The delay between frames
+getFrameDelay :: Int -> Bool -> Int
+getFrameDelay level dropkey = (1 * 10^3) `div` divisor
+	where divisor =
+		((level * 8) + 32) * (if dropkey then 4 else 1)
+
+-- Determine the next GameState from the current GameState
+updateGame :: Int -> GameState -> GameState
+updateGame delay (state@(GameState {mode = GameOverMode})) =
+	let
+		ttFrameSwap' = ttFrameSwap state - delay
+		done = ttFrameSwap' <= 0
+	in state {
+		mode = if done then IntroMode else GameOverMode,
+		level = if done then 0 else level state,
+		ttFrameSwap = max 0 ttFrameSwap',
+		sfxEvents = []
+	}
+updateGame _ (state@(GameState {mode = PausedMode})) = state
+updateGame _ (state@(GameState {mode = IntroMode})) = state
+updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
+		anidiff = ttFrameSwap - delay
+		ttFrameSwap' = if anidiff < 0
+			then frameDelay + (anidiff `mod` frameDelay)
+			else anidiff
+		advanceFrames = if anidiff < 0
+			then (abs anidiff `div` frameDelay) + 1 else 0
+		offset' = framesToAlignment - advanceFrames
+		framesToAlignment' = if offset' < 0
+			then offset' `mod` tileS else offset'
+		advanceCells = if offset' < 0
+			then (abs offset' `div` tileS) + 1 else 0
+	in
+		state {
+			mode = InGameMode,
+			framesToAlignment = framesToAlignment',
+			ttFrameSwap = ttFrameSwap'
+		}
+	where
+		frameDelay = getFrameDelay level dropKey
 

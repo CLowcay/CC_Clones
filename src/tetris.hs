@@ -78,7 +78,8 @@ initGameState = do
 		framesToAlignment = 0,
 		score = 0, scoreCounter = initCounter (gfx M.! Digits) 5,
 		sfxEvents = [],
-		level = 0, levelCounter = initCounter (gfx M.! Digits) 2
+		level = 0, levelCounter = initCounter (gfx M.! Digits) 2,
+		dropKey = False
 	}
 
 -- The main game loop
