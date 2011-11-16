@@ -36,8 +36,8 @@ import Tetris.GameState
 fieldX = 0 :: Int
 fieldY = 0 :: Int
 
-realX x = fieldX + (x * tileW)
-realY y = fieldY + (y * tileH)
+realX x = fieldX + (x * tileS)
+realY y = fieldY + (y * tileS)
 
 -- Render a frame
 renderFrame :: GameState -> ReaderT Assets IO ()

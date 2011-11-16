@@ -20,9 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 {-# LANGUAGE RecordWildCards #-}
 
 module Tetris.Assets (
-	Assets(..),
-	loadAssets,
-	tileW, tileH
+	Assets(..), loadAssets
 ) where
 
 import Common.Assets
@@ -39,9 +37,6 @@ data Assets = Assets {
 	sfx :: M.Map Sfx Chunk,
 	font :: Font
 }
-
-tileW = 26 :: Int
-tileH = 26 :: Int
 
 -- Load all assets
 loadAssets :: IO Assets
@@ -83,13 +78,13 @@ loadSprites = do
 		tileAnimation Digits = makeAnimation digits 20 180 0 0
 		tileAnimation Paused = makeAnimation paused 234 160 0 0
 		tileAnimation GameOverTile = makeAnimation gameOver 200 64 0 0
-		tileAnimation RedTile = makeAnimation redTile tileW tileH 0 0
-		tileAnimation PinkTile = makeAnimation pinkTile tileW tileH 0 0
-		tileAnimation YellowTile = makeAnimation yellowTile tileW tileH 0 0
-		tileAnimation OrangeTile = makeAnimation orangeTile tileW tileH 0 0
-		tileAnimation BlueTile = makeAnimation blueTile tileW tileH 0 0
-		tileAnimation GreyTile = makeAnimation greyTile tileW tileH 0 0
-		tileAnimation GreenTile = makeAnimation greenTile tileW tileH 0 0
+		tileAnimation RedTile = makeAnimation redTile tileS tileS 0 0
+		tileAnimation PinkTile = makeAnimation pinkTile tileS tileS 0 0
+		tileAnimation YellowTile = makeAnimation yellowTile tileS tileS 0 0
+		tileAnimation OrangeTile = makeAnimation orangeTile tileS tileS 0 0
+		tileAnimation BlueTile = makeAnimation blueTile tileS tileS 0 0
+		tileAnimation GreyTile = makeAnimation greyTile tileS tileS 0 0
+		tileAnimation GreenTile = makeAnimation greenTile tileS tileS 0 0
 
 	return$ M.fromList$ map (\tile ->
 		(tile, tileAnimation tile)) allTiles

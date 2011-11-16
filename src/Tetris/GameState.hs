@@ -22,7 +22,8 @@ module Tetris.GameState (
 	GameMode(..), GameState(..),
 	Sfx(..), Channels(..),
 	Tile(..), Brick(..), Rotation(..),
-	allTiles, clearField, srsCoords, tile
+	allTiles, clearField, srsCoords, tile, tileS,
+	updateGame
 ) where
 
 import Common.Counters
@@ -104,6 +105,9 @@ srsCoords ZBrick RUp = [(0, 0), (1, 0), (1, 1), (2, 1)]
 srsCoords ZBrick RRight = [(2, 0), (2, 1), (1, 1), (1, 2)]
 srsCoords ZBrick RDown = [(0, 1), (1, 1), (1, 2), (2, 2)]
 srsCoords ZBrick RLeft = [(1, 0), (1, 1), (0, 1), (0, 2)]
+
+-- How big is a cell
+tileS = 26 :: Int
 
 -- Define the colours of the bricks
 tile :: Brick -> Tile
