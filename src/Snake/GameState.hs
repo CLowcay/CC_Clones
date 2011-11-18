@@ -26,10 +26,12 @@ module Snake.GameState (
 	updateGame, inferSnakeTiles
 ) where
 
+import Common.AniTimer
 import Common.Counters
 import Common.Graphics
 import Common.HighScores
 import Common.Util
+import Control.Monad.State
 import Data.List
 import Data.Maybe
 import Debug.Trace
@@ -63,7 +65,7 @@ data GameState = GameState {
 	-- enqueue on the back, dequeue from the front
 	nextDirections :: Q.Queue Direction,
 	currentDirection :: Direction,
-	ttFrameSwap :: Int,
+	aniTimer :: AniTimer,
 	framesToAlignment :: Int,
 	holdCount :: Int,
 	snakeCells :: [((Int, Int), Bool)],
@@ -103,14 +105,14 @@ appleValue AppleA = 1
 appleValue AppleB = 5
 
 -- How long to display the game over message, in milliseconds
-gameOverDelay :: Int
-gameOverDelay = (1 * 10^3) * 4
+gameOverDelay :: Double
+gameOverDelay = ((1::Double) * 10^3) * 4
 
 -- The delay for snake frames, in milliseconds
-getFrameDelay :: Int -> Bool -> Int
-getFrameDelay level fastMode = (1 * 10^3) `div` divisor
+getFrameDelay :: Int -> Bool -> Double
+getFrameDelay level fastMode = ((1 :: Double) * 10^3) / divisor
 	where divisor =
-		((level * 8) + 32) * (if fastMode then 4 else 1)
+		(((fromIntegral level) * 8) + 32) * (if fastMode then 4 else 1)
 
 -- Get the next direction from the queue
 getNextDirection ::
@@ -128,13 +130,14 @@ getNextDirection currentDirection directions =
 updateGame :: Int -> GameState -> GameState
 updateGame delay (state@(GameState {mode = GameOverMode})) =
 	let
-		ttFrameSwap' = ttFrameSwap state - delay
-		done = ttFrameSwap' <= 0
+		(frames, aniTimer') =
+			runState (advanceFrames delay gameOverDelay) (aniTimer state)
+		done = frames > 0
 	in state {
 		mode = if done then IntroMode else GameOverMode,
 		level = if done then 0 else level state,
 		loadLevel = done,
-		ttFrameSwap = max 0 ttFrameSwap',
+		aniTimer = if done then resetTimer else aniTimer',
 		sfxEvents = [],
 		eatingApples = []
 	}
@@ -146,13 +149,9 @@ updateGame _ (state@(GameState {mode = HighScoreMode})) =
 		eatingApples = []
 	}
 updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
-		anidiff = ttFrameSwap - delay
-		ttFrameSwap' = if anidiff < 0
-			then frameDelay + (anidiff `mod` frameDelay)
-			else anidiff
-		advanceFrames = if anidiff < 0
-			then (abs anidiff `div` frameDelay) + 1 else 0
-		offset' = framesToAlignment - advanceFrames
+		(frames, aniTimer') =
+			runState (advanceFrames delay frameDelay) aniTimer
+		offset' = framesToAlignment - frames
 		framesToAlignment' = if offset' < 0
 			then offset' `mod` 16 else offset'
 		advanceCells = if offset' < 0
@@ -194,7 +193,8 @@ updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
 				if advanceCells > 0 then nextDirections' else nextDirections,
 			currentDirection =
 				if advanceCells > 0 then currentDirection' else currentDirection,
-			ttFrameSwap = if gameOver then gameOverDelay else ttFrameSwap',
+			aniTimer = if gameOver
+				then setTimer gameOverDelay else aniTimer',
 			holdCount =
 				max 0 (holdCount - advanceCells) + eatenApplesValue,
 			snakeCells = snakeCells',

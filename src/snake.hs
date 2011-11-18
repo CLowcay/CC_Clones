@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 module Main where
 
+import Common.AniTimer
 import Common.Counters
 import Common.Events
 import Common.Graphics
@@ -90,7 +91,7 @@ initGameState = do
 			introMessage = introMessage, introMessage2 = introMessage2,
 			highScoreMessage = highScoreMessage,
 			nextDirections = Q.empty, currentDirection = DUp,
-			ttFrameSwap = 0,
+			aniTimer = resetTimer,
 			fastMode = False,
 			framesToAlignment = 15,
 			holdCount = 0,

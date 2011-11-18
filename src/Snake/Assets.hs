@@ -25,6 +25,7 @@ module Snake.Assets (
 	Snake.Assets.loadLevel
 ) where
 
+import Common.AniTimer
 import Common.Assets
 import Common.Counters
 import Common.Graphics
@@ -211,7 +212,7 @@ loadLevel level (state@(GameState {wallStamp})) = do
 	return$ state {
 		fastMode = False,
 		nextDirections = Q.empty, currentDirection = startDirection,
-		ttFrameSwap = 0,
+		aniTimer = resetTimer,
 		framesToAlignment = 15,
 		holdCount = 0,
 		snakeCells = snakeCells,

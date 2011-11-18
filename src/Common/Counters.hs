@@ -26,15 +26,17 @@ module Common.Counters (
 	renderCounter
 ) where
 
+import Common.AniTimer
 import Common.Graphics
 import Control.Monad
+import Control.Monad.State
 import Graphics.UI.SDL
 
 data CounterState = CounterState {
 	digits :: Animation,
 	display :: Int,
 	target :: Int,
-	ttFrameSwap :: Int,
+	aniTimer :: AniTimer,
 	framesToAlignment :: Int,
 	nDigits :: Int,
 	changedDigits :: [Bool]
@@ -45,23 +47,22 @@ initCounter :: Animation -> Int -> CounterState
 initCounter digits nDigits = CounterState {
 	digits = digits,
 	display = 0, target = 0,
-	ttFrameSwap = 0, framesToAlignment = 0,
+	aniTimer = resetTimer, framesToAlignment = 0,
 	nDigits = nDigits,
 	changedDigits = replicate nDigits False
 }
 
 -- The delay for counter frames, in milliseconds
-frameDelay :: Int
-frameDelay = (1 * 10^3) `div` (4 * 18)
+frameDelay :: Double
+frameDelay = ((1 :: Double) * 10^3) / (4 * 18)
 
 -- Update a counter state based on a time delta
 updateCounter :: Int -> CounterState -> CounterState
 updateCounter delay (state@CounterState {..}) =
 	let
-		anidiff = ttFrameSwap - delay
-		advanceFrames = if anidiff < 0
-			then abs anidiff `div` frameDelay + 1 else 0
-		offset' = framesToAlignment - advanceFrames
+		(frames, aniTimer') =
+			runState (advanceFrames delay frameDelay) aniTimer
+		offset' = framesToAlignment - frames
 		framesToAlignment' = if offset' < 0
 			then offset' `mod` 18 else offset'
 		advanceDigits = if offset' < 0
@@ -75,9 +76,7 @@ updateCounter delay (state@CounterState {..}) =
 		framesToAlignment =
 			if target == display && framesToAlignment == 0
 				then 0 else framesToAlignment',
-		ttFrameSwap = if anidiff < 0
-			then frameDelay + (anidiff `mod` frameDelay)
-			else anidiff,
+		aniTimer = aniTimer',
 		display = display',
 		changedDigits = if framesToAlignment' > framesToAlignment
 			then zipWith (/=)
@@ -104,7 +103,7 @@ setCounter n state = state {target = n}
 resetCounter :: Int -> CounterState -> CounterState
 resetCounter n state = state {
 	target = n, display = n,
-	ttFrameSwap = 0, framesToAlignment = 0
+	aniTimer = resetTimer, framesToAlignment = 0
 }
 
 -- Render the counter

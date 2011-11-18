@@ -1,5 +1,5 @@
 module Common.AniTimer (
-	AniTimer, resetTimer, advanceFrames
+	AniTimer, resetTimer, setTimer, advanceFrames
 ) where
 
 import Control.Monad.State
@@ -10,6 +10,9 @@ data AniTimer = AniTimer {
 
 resetTimer :: AniTimer
 resetTimer = AniTimer {ttFrameSwap = 0}
+
+setTimer :: Double -> AniTimer
+setTimer delay = AniTimer {ttFrameSwap = delay}
 
 advanceFrames :: Int -> Double -> State AniTimer Int
 advanceFrames delay frameDelay = do
