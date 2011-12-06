@@ -48,15 +48,21 @@ data Brick = IBrick | JBrick | LBrick | OBrick | SBrick | TBrick | ZBrick
 data Rotation = RUp | RDown | RLeft | RRight
 	deriving (Enum, Ord, Eq, Show)
 
+data SlideAction = SlideLeft | SlideRight
+	deriving (Enum, Ord, Eq, Show)
+
+type Field = Array (Int, Int) (Maybe Tile)
+
 -- The complete state of the game at any point in time
 data GameState = GameState {
 	mode :: GameMode,
 	brickQueue :: Q.Queue Brick,
 	currentBrick :: Brick,
 	currentRotation :: Rotation,
-	currentHeight :: Int,
-	currentPos :: Int,
-	field :: [Array Int (Maybe Tile)],
+	currentHeight :: Int, -- 0 indexed, axis bottom to top
+	currentPos :: Int, -- 0 indexed, axis goes left to right
+	field :: Field,
+	slideQueue :: Q.Queue SlideAction,
 	downTimer :: AniTimer,
 	slideTimer :: AniTimer,
 	downFTA :: Int,
@@ -67,8 +73,9 @@ data GameState = GameState {
 	dropKey :: Bool
 } deriving (Show)
 
-clearField :: [Array Int (Maybe Tile)]
-clearField = replicate 24 (listArray (0, 9) (replicate 10 Nothing))
+clearField :: Array (Int, Int) (Maybe Tile)
+clearField = array ((0, 9), (0, 23))
+	[((x, y), Nothing)|x <- [0..9], y <- [0..23]]
 
 data Sfx = SfxTurn | SfxLine
 	deriving (Enum, Ord, Eq, Show)
@@ -110,6 +117,15 @@ srsCoords ZBrick RUp = [(0, 0), (1, 0), (1, 1), (2, 1)]
 srsCoords ZBrick RRight = [(2, 0), (2, 1), (1, 1), (1, 2)]
 srsCoords ZBrick RDown = [(0, 1), (1, 1), (1, 2), (2, 2)]
 srsCoords ZBrick RLeft = [(1, 0), (1, 1), (0, 1), (0, 2)]
+
+-- Convert block coordinates to field coordinates
+toFieldCoords :: Int -> Int -> [(Int, Int)] -> [(Int, Int)]
+toFieldCoords height pos = map (\(x, y) -> (x + pos, height - y))
+
+-- Determine if a list of field coordinates are a valid block position
+isValidPosition :: [(Int, Int)] -> Field -> Bool
+isValidPosition coords field =
+	all (\(x, y) -> isNothing$ field ! (x, y)) coords
 
 -- How big is a cell
 tileS = 26 :: Int

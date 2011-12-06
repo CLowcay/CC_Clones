@@ -46,8 +46,8 @@ renderFrame state@(GameState {..}) = do
 	display <- liftIO getVideoSurface
 
 	-- render field
-	forM_ ([0..] `zip` drop 2 field) $ \(y, line) ->
-		forM_ (assocs line) $ \(x, tm) -> liftIO$
+	forM_ (assocs field) $ \((x, y), tm) -> liftIO$
+		when (y < 22) $
 			case tm of
 				Nothing -> return ()
 				Just tile -> renderAnimation display 0
@@ -61,7 +61,7 @@ renderFrame state@(GameState {..}) = do
 		brickAni = gfx M.! (tile currentBrick)
 	forM_ brickCoords $ \(x, y) -> liftIO$
 		renderAnimation display 0
-			(realX x) (realY y) (brickAni)
+			(realX x) (realY y) brickAni
 
 	when (mode == PausedMode) $ liftIO$
 		renderAnimation display 0 123 160 (gfx M.! Paused)

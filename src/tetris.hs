@@ -75,6 +75,7 @@ initGameState = do
 		currentHeight = 0,
 		currentPos = 0,
 		field = clearField,
+		slideQueue = Q.empty,
 		downTimer = resetTimer,
 		slideTimer = resetTimer,
 		downFTA = 0,
