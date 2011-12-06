@@ -26,7 +26,9 @@ module Tetris.GameState (
 	updateGame
 ) where
 
+import Common.AniTimer
 import Common.Counters
+import Control.Monad.State
 import Data.Array
 import Data.Maybe
 import qualified Common.Queue as Q
@@ -55,8 +57,10 @@ data GameState = GameState {
 	currentHeight :: Int,
 	currentPos :: Int,
 	field :: [Array Int (Maybe Tile)],
-	ttFrameSwap :: Int,
-	framesToAlignment :: Int,
+	downTimer :: AniTimer,
+	slideTimer :: AniTimer,
+	downFTA :: Int,
+	slideFTA :: Int,
 	score :: Int, scoreCounter :: CounterState,
 	sfxEvents :: [(Sfx, Channels)],  -- sounds to be played after rendering
 	level :: Int, levelCounter :: CounterState,
@@ -121,43 +125,55 @@ tile TBrick = GreyTile
 tile ZBrick = GreenTile
 
 -- The delay between frames
-getFrameDelay :: Int -> Bool -> Int
-getFrameDelay level dropkey = (1 * 10^3) `div` divisor
+getDropDelay :: Int -> Bool -> Double
+getDropDelay level dropkey = ((1 :: Double) * 10^3) / divisor
 	where divisor =
-		((level * 8) + 32) * (if dropkey then 4 else 1)
+		(((fromIntegral level) * 8) + 32) * (if dropkey then 4 else 1)
+
+-- How long to display the game over message, in milliseconds
+gameOverDelay :: Double
+gameOverDelay = ((1 :: Double) * 10^3) * 4
+
+slideDelay :: Double
+slideDelay = ((1 :: Double) * 10 ^ 3) / ((fromIntegral tileS) * 2)
+
 
 -- Determine the next GameState from the current GameState
 updateGame :: Int -> GameState -> GameState
 updateGame delay (state@(GameState {mode = GameOverMode})) =
 	let
-		ttFrameSwap' = ttFrameSwap state - delay
-		done = ttFrameSwap' <= 0
+		(frames, downTimer') =
+			runState (advanceFrames delay gameOverDelay) (downTimer state)
+		done = frames > 0
 	in state {
 		mode = if done then IntroMode else GameOverMode,
 		level = if done then 0 else level state,
-		ttFrameSwap = max 0 ttFrameSwap',
+		downTimer = if done then resetTimer else downTimer',
 		sfxEvents = []
 	}
 updateGame _ (state@(GameState {mode = PausedMode})) = state
 updateGame _ (state@(GameState {mode = IntroMode})) = state
 updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
-		anidiff = ttFrameSwap - delay
-		ttFrameSwap' = if anidiff < 0
-			then frameDelay + (anidiff `mod` frameDelay)
-			else anidiff
-		advanceFrames = if anidiff < 0
-			then (abs anidiff `div` frameDelay) + 1 else 0
-		offset' = framesToAlignment - advanceFrames
-		framesToAlignment' = if offset' < 0
-			then offset' `mod` tileS else offset'
-		advanceCells = if offset' < 0
-			then (abs offset' `div` tileS) + 1 else 0
+		(downFrames, downTimer') =
+			runState (advanceFrames delay dropDelay) downTimer
+		(slideFrames, slideTimer') =
+			runState (advanceFrames delay slideDelay) slideTimer
+		downOffset' = downFTA - downFrames
+		downFTA' = if downOffset' < 0
+			then downOffset' `mod` tileS else downOffset'
+		downCells = if downOffset' < 0
+			then (abs downOffset' `div` tileS) + 1 else 0
+		slideOffset' = slideFTA - slideFrames
+		slideFTA' = if slideOffset' < 0
+			then slideOffset' `mod` tileS else slideOffset'
 	in
 		state {
 			mode = InGameMode,
-			framesToAlignment = framesToAlignment',
-			ttFrameSwap = ttFrameSwap'
+			downFTA = downFTA',
+			slideFTA = slideFTA',
+			downTimer = downTimer',
+			slideTimer = slideTimer'
 		}
 	where
-		frameDelay = getFrameDelay level dropKey
+		dropDelay = getDropDelay level dropKey
 

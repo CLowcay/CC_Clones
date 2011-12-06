@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 module Main where
 
+import Common.AniTimer
 import Common.Counters
 import Common.Events
 import Control.Monad
@@ -74,8 +75,10 @@ initGameState = do
 		currentHeight = 0,
 		currentPos = 0,
 		field = clearField,
-		ttFrameSwap = 0,
-		framesToAlignment = 0,
+		downTimer = resetTimer,
+		slideTimer = resetTimer,
+		downFTA = 0,
+		slideFTA = 0,
 		score = 0, scoreCounter = initCounter (gfx M.! Digits) 5,
 		sfxEvents = [],
 		level = 0, levelCounter = initCounter (gfx M.! Digits) 2,
