@@ -74,8 +74,8 @@ data GameState = GameState {
 } deriving (Show)
 
 clearField :: Array (Int, Int) (Maybe Tile)
-clearField = array ((0, 9), (0, 23))
-	[((x, y), Nothing)|x <- [0..9], y <- [0..23]]
+clearField = array ((0, 0), (9, 23))
+	[((x, y), if x == y then Just RedTile else Nothing)|x <- [0..9], y <- [0..23]]
 
 data Sfx = SfxTurn | SfxLine
 	deriving (Enum, Ord, Eq, Show)

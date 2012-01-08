@@ -90,6 +90,7 @@ initGameState = do
 mainLoop :: Int -> GameState -> ReaderT Assets IO ()
 mainLoop time0 state0 = do
 	playSounds state0
+	renderFrame state0
 
 	time1 <- fmap fromIntegral$ liftIO$getTicks
 	let delay = time1 - time0
