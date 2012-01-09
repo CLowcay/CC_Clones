@@ -38,6 +38,7 @@ data GameMode =
 	deriving (Enum, Eq, Show)
 
 data Tile = Digits | Paused | GameOverTile |
+	FrameH | FrameV |
 	RedTile | PinkTile | YellowTile |
 	OrangeTile | BlueTile | GreyTile | GreenTile
 	deriving (Enum, Ord, Eq, Show)
@@ -74,8 +75,8 @@ data GameState = GameState {
 } deriving (Show)
 
 clearField :: Array (Int, Int) (Maybe Tile)
-clearField = array ((0, 0), (9, 23))
-	[((x, y), if x == y then Just RedTile else Nothing)|x <- [0..9], y <- [0..23]]
+clearField = array ((0, 0), (8, 22))
+	[((x, y), if x == y then Just RedTile else Nothing)|x <- [0..8], y <- [0..22]]
 
 data Sfx = SfxTurn | SfxLine
 	deriving (Enum, Ord, Eq, Show)

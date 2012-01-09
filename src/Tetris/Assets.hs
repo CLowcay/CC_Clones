@@ -61,6 +61,9 @@ loadSprites = do
 	paused <- loadBMP$ getAssetPath "gfx/Paused.bmp"
 	gameOver <- loadBMP$ getAssetPath "gfx/gameOver.bmp"
 	digits <- loadBMP$ getAssetPath "gfx/Digits.bmp"
+
+	frameH <- loadBMP$ getAssetPath "gfx/FrameH.bmp"
+	frameV <- loadBMP$ getAssetPath "gfx/FrameV.bmp"
 	
 	redTile <- loadBMP$ getAssetPath "gfx/RedTile.bmp"
 	pinkTile <- loadBMP$ getAssetPath "gfx/PinkTile.bmp"
@@ -78,6 +81,8 @@ loadSprites = do
 		tileAnimation Digits = makeAnimation digits 20 180 0 0
 		tileAnimation Paused = makeAnimation paused 234 160 0 0
 		tileAnimation GameOverTile = makeAnimation gameOver 200 64 0 0
+		tileAnimation FrameH = makeAnimation frameH 260 13 0 0
+		tileAnimation FrameV = makeAnimation frameV 13 572 0 0
 		tileAnimation RedTile = makeAnimation redTile tileS tileS 0 0
 		tileAnimation PinkTile = makeAnimation pinkTile tileS tileS 0 0
 		tileAnimation YellowTile = makeAnimation yellowTile tileS tileS 0 0

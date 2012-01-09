@@ -33,11 +33,11 @@ import qualified Data.Map as M
 import Tetris.Assets
 import Tetris.GameState
 
-fieldX = 0 :: Int
-fieldY = 0 :: Int
+fieldX = 13 :: Int
+fieldY = 13 :: Int
 
 realX x = fieldX + (x * tileS)
-realY y = fieldY + (y * tileS)
+realY y = fieldY + ((21 - y) * tileS)
 
 -- Render a frame
 renderFrame :: GameState -> ReaderT Assets IO ()
@@ -45,18 +45,25 @@ renderFrame state@(GameState {..}) = do
 	Assets {..} <- ask
 	display <- liftIO getVideoSurface
 
+	-- render border
+	liftIO$ do
+		renderAnimation display 0 0 0 (gfx M.! FrameH)
+		renderAnimation display 0 0 13 (gfx M.! FrameV)
+		renderAnimation display 0 0 585 (gfx M.! FrameH)
+		renderAnimation display 0 247 13 (gfx M.! FrameV)
+
 	-- render field
 	forM_ (assocs field) $ \((x, y), tm) -> liftIO$
 		when (y < 22) $
 			case tm of
 				Nothing -> return ()
-				Just tile -> renderAnimation display 0
-					(realX x) (realY y) (gfx M.! tile)
+				Just tile -> do
+					renderAnimation display 0 (realX x) (realY y) (gfx M.! tile)
 
 	-- render brick
 	let
 		brickCoords =
-			map (\(x, y) -> (x + currentPos, y + currentHeight - 2)) $
+			map (\(x, y) -> (x + currentPos, currentHeight - y)) $
 				srsCoords currentBrick currentRotation
 		brickAni = gfx M.! (tile currentBrick)
 	forM_ brickCoords $ \(x, y) -> liftIO$
