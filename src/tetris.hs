@@ -68,12 +68,13 @@ initGameState :: ReaderT Assets IO GameState
 initGameState = do
 	Assets {..} <- ask
 	return GameState {
-		mode = IntroMode,
+		mode = InGameMode,
 		brickQueue = Q.empty,
 		currentBrick = IBrick,
 		currentRotation = RUp,
 		currentHeight = 22,
 		currentPos = 0,
+		currentSlide = Nothing,
 		field = clearField,
 		slideQueue = Q.empty,
 		downTimer = resetTimer,
@@ -99,8 +100,10 @@ mainLoop time0 state0 = do
 	events <- liftIO$pollEvents
 	let (continue, state1) =
 		runState (handleEvents gameEventHandler events) state0
+	
+	let state2 = updateGame delay state1
 
-	when continue $ mainLoop time1 state1
+	when continue $ mainLoop time1 state2
 
 -- Handle game events
 gameEventHandler :: EventHandler GameState

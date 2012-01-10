@@ -21,7 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 module Tetris.GameState (
 	GameMode(..), GameState(..),
 	Sfx(..), Channels(..),
-	Tile(..), Brick(..), Rotation(..),
+	Tile(..), Brick(..), Rotation(..), SlideAction(..),
 	allTiles, clearField, srsCoords, tile, tileS,
 	updateGame
 ) where
@@ -62,10 +62,12 @@ data GameState = GameState {
 	currentRotation :: Rotation,
 	currentHeight :: Int, -- 0 indexed, axis bottom to top
 	currentPos :: Int, -- 0 indexed, axis goes left to right
+	currentSlide :: Maybe SlideAction,
 	field :: Field,
 	slideQueue :: Q.Queue SlideAction,
 	downTimer :: AniTimer,
 	slideTimer :: AniTimer,
+	-- FTA = Frames To Alignment
 	downFTA :: Int,
 	slideFTA :: Int,
 	score :: Int, scoreCounter :: CounterState,

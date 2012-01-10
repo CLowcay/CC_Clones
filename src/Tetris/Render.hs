@@ -45,20 +45,17 @@ renderFrame state@(GameState {..}) = do
 	Assets {..} <- ask
 	display <- liftIO getVideoSurface
 
-	-- render border
-	liftIO$ do
-		renderAnimation display 0 0 0 (gfx M.! FrameH)
-		renderAnimation display 0 0 13 (gfx M.! FrameV)
-		renderAnimation display 0 0 585 (gfx M.! FrameH)
-		renderAnimation display 0 247 13 (gfx M.! FrameV)
-
 	-- render field
 	forM_ (assocs field) $ \((x, y), tm) -> liftIO$
 		when (y < 22) $
 			case tm of
-				Nothing -> return ()
-				Just tile -> do
-					renderAnimation display 0 (realX x) (realY y) (gfx M.! tile)
+				Nothing -> do
+					fillRect display
+						(Just$Rect (realX x) (realY y) tileS tileS) (Pixel 0)
+					return ()
+				Just tile ->
+					renderAnimation display 0
+						(realX x) (realY y) (gfx M.! tile)
 
 	-- render brick
 	let
@@ -66,9 +63,21 @@ renderFrame state@(GameState {..}) = do
 			map (\(x, y) -> (x + currentPos, currentHeight - y)) $
 				srsCoords currentBrick currentRotation
 		brickAni = gfx M.! (tile currentBrick)
+		brickHOffset = case currentSlide of
+			Just SlideLeft -> slideFTA
+			Just SlideRight -> - slideFTA
+			Nothing -> 0
+		brickVOffset = - downFTA
 	forM_ brickCoords $ \(x, y) -> liftIO$
 		renderAnimation display 0
-			(realX x) (realY y) brickAni
+			((realX x) + brickHOffset) ((realY y) + brickVOffset) brickAni
+
+	-- render border
+	liftIO$ do
+		renderAnimation display 0 0 0 (gfx M.! FrameH)
+		renderAnimation display 0 0 13 (gfx M.! FrameV)
+		renderAnimation display 0 0 585 (gfx M.! FrameH)
+		renderAnimation display 0 247 13 (gfx M.! FrameV)
 
 	when (mode == PausedMode) $ liftIO$
 		renderAnimation display 0 123 160 (gfx M.! Paused)
