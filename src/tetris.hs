@@ -69,6 +69,7 @@ initGameState = do
 	Assets {..} <- ask
 	return GameState {
 		mode = InGameMode,
+		gracePeriod = False,
 		brickQueue = Q.empty,
 		currentBrick = IBrick,
 		currentRotation = RUp,

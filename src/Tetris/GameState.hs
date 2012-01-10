@@ -58,6 +58,7 @@ type Field = Array (Int, Int) (Maybe Tile)
 data GameState = GameState {
 	mode :: GameMode,
 	brickQueue :: Q.Queue Brick,
+	gracePeriod :: Bool,
 	currentBrick :: Brick,
 	currentRotation :: Rotation,
 	currentHeight :: Int, -- 0 indexed, axis bottom to top
@@ -128,7 +129,7 @@ toFieldCoords height pos = map (\(x, y) -> (x + pos, height - y))
 -- Determine if a list of field coordinates are a valid block position
 isValidPosition :: [(Int, Int)] -> Field -> Bool
 isValidPosition coords field =
-	all (\(x, y) -> isNothing$ field ! (x, y)) coords
+	all (\(x, y) -> y >= 0 && (isNothing$ field ! (x, y))) coords
 
 -- How big is a cell
 tileS = 26 :: Int
@@ -156,7 +157,6 @@ gameOverDelay = ((1 :: Double) * 10^3) * 4
 slideDelay :: Double
 slideDelay = ((1 :: Double) * 10 ^ 3) / ((fromIntegral tileS) * 2)
 
-
 -- Determine the next GameState from the current GameState
 updateGame :: Int -> GameState -> GameState
 updateGame delay (state@(GameState {mode = GameOverMode})) =
@@ -182,17 +182,44 @@ updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
 			then downOffset' `mod` tileS else downOffset'
 		downCells = if downOffset' < 0
 			then (abs downOffset' `div` tileS) + 1 else 0
+		((currentHeight', gracePeriod'), field') =
+			runState (updateBrick downCells) field
 		slideOffset' = slideFTA - slideFrames
 		slideFTA' = if slideOffset' < 0
 			then slideOffset' `mod` tileS else slideOffset'
-	in
-		state {
+		state' = state {
 			mode = InGameMode,
 			downFTA = downFTA',
 			slideFTA = slideFTA',
 			downTimer = downTimer',
-			slideTimer = slideTimer'
+			slideTimer = slideTimer',
+			field = field',
+			gracePeriod = gracePeriod',
+			currentHeight = if currentHeight' < 0 then 22 else currentHeight'
 		}
+	in
+		if currentHeight < 0 then nextBrick state' else state'
 	where
 		dropDelay = getDropDelay level dropKey
+		brickFieldCoords height = toFieldCoords height currentPos
+			(srsCoords currentBrick currentRotation)
+		blockDown 0 height = (height, False)
+		blockDown downCells height =
+			if isValidPosition (brickFieldCoords (height - 1)) field
+				then blockDown (downCells - 1) (height - 1)
+				else (height, True)
+		updateBrick :: Int -> State Field (Int, Bool)
+		updateBrick downCells = do
+			if gracePeriod then
+				if downCells > 0 then do
+					currentField <- get
+					put$ mergeField currentField
+						(brickFieldCoords currentHeight) (tile currentBrick)
+					return (-1, False)
+				else return (currentHeight, True)
+			else return (blockDown downCells currentHeight)
+nextBrick (state@(GameState {..})) = state
+
+mergeField :: Field -> [(Int, Int)] -> Tile -> Field
+mergeField field coords tile = field // (coords `zip` (repeat$ Just tile))
 
