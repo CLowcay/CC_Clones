@@ -71,7 +71,6 @@ data GameState = GameState {
 	currentPos :: Int, -- 0 indexed, axis goes left to right
 	currentSlide :: Maybe SlideAction,
 	field :: Field,
-	slideQueue :: Q.Queue SlideAction,
 	downTimer :: AniTimer,
 	slideTimer :: AniTimer,
 	-- FTA = Frames To Alignment
@@ -160,7 +159,7 @@ tile ZBrick = GreenTile
 getDropDelay :: Int -> Bool -> Double
 getDropDelay level dropkey = ((1 :: Double) * 10^3) / divisor
 	where divisor =
-		(((fromIntegral level) * 8) + 32) * (if dropkey then 4 else 1)
+		(((fromIntegral level) * 8) + 32) * (if dropkey then 10 else 1)
 
 -- How long to display the game over message, in milliseconds
 gameOverDelay :: Double
@@ -202,9 +201,9 @@ updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
 		state' = state {
 			mode = InGameMode,
 			downFTA = downFTA',
-			slideFTA = slideFTA',
+			slideFTA = if isSliding then slideFTA' else slideFTA,
 			downTimer = downTimer',
-			slideTimer = slideTimer',
+			slideTimer = if isSliding then slideTimer' else slideTimer,
 			field = field',
 			gracePeriod = gracePeriod',
 			currentHeight = if currentHeight' < 0 then 22 else currentHeight'
@@ -213,6 +212,7 @@ updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
 		if currentHeight' < 0 then nextBrick state' else state'
 	where
 		dropDelay = getDropDelay level dropKey
+		isSliding = isJust currentSlide
 		brickFieldCoords height = toFieldCoords height currentPos
 			(srsCoords currentBrick currentRotation)
 		blockDown 0 height = (height, False)

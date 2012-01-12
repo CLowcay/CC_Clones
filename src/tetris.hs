@@ -81,7 +81,6 @@ initGameState = do
 		currentPos = 0,
 		currentSlide = Nothing,
 		field = clearField,
-		slideQueue = Q.empty,
 		downTimer = resetTimer,
 		slideTimer = resetTimer,
 		downFTA = 0,
@@ -113,6 +112,27 @@ mainLoop time0 state0 = do
 -- Handle game events
 gameEventHandler :: EventHandler GameState
 gameEventHandler Quit = return False
+gameEventHandler (KeyDown sym) = do
+	state <- get
+	case (symKey sym) of
+		SDLK_DOWN -> do
+			put$state {dropKey = True}
+			return True
+		SDLK_LEFT -> do
+			put$state {currentSlide = Just SlideLeft}
+			return True
+		SDLK_RIGHT -> do
+			put$state {currentSlide = Just SlideRight}
+			return True
+		SDLK_ESCAPE -> return False
+		_ -> return True
+gameEventHandler (KeyUp sym) = do
+	state <- get
+	case (symKey sym) of
+		SDLK_DOWN -> do
+			put$state {dropKey = False}
+			return True
+		_ -> return True
 gameEventHandler _ = return True
 
 -- Play currently scheduled sound effects
