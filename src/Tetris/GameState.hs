@@ -23,15 +23,18 @@ module Tetris.GameState (
 	Sfx(..), Channels(..),
 	Tile(..), Brick(..), Rotation(..), SlideAction(..),
 	allTiles, clearField, srsCoords, tile, tileS,
-	updateGame
+	updateGame, randomBag, nextBrick
 ) where
 
 import Common.AniTimer
 import Common.Counters
+import Common.Util
 import Control.Monad.State
 import Data.Array
 import Data.Maybe
+import Debug.Trace
 import qualified Common.Queue as Q
+import System.Random
 
 data GameMode =
 	IntroMode | InGameMode | PausedMode | GameOverMode | HighScoreMode
@@ -46,6 +49,8 @@ allTiles = enumFrom Digits   -- A list of all the tiles
 
 data Brick = IBrick | JBrick | LBrick | OBrick | SBrick | TBrick | ZBrick
 	deriving (Enum, Ord, Eq, Show)
+firstBrick = IBrick
+lastBrick = ZBrick
 data Rotation = RUp | RDown | RLeft | RRight
 	deriving (Enum, Ord, Eq, Show)
 
@@ -57,6 +62,7 @@ type Field = Array (Int, Int) (Maybe Tile)
 -- The complete state of the game at any point in time
 data GameState = GameState {
 	mode :: GameMode,
+	randomState :: StdGen,
 	brickQueue :: Q.Queue Brick,
 	gracePeriod :: Bool,
 	currentBrick :: Brick,
@@ -131,6 +137,12 @@ isValidPosition :: [(Int, Int)] -> Field -> Bool
 isValidPosition coords field =
 	all (\(x, y) -> y >= 0 && (isNothing$ field ! (x, y))) coords
 
+-- Generate a random bag of blocks
+randomBag :: RandomGen r => State r (Q.Queue Brick)
+randomBag = do
+	p <- permutation [firstBrick..lastBrick]
+	return (Q.enqueueMany Q.empty p)
+
 -- How big is a cell
 tileS = 26 :: Int
 
@@ -198,7 +210,7 @@ updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
 			currentHeight = if currentHeight' < 0 then 22 else currentHeight'
 		}
 	in
-		if currentHeight < 0 then nextBrick state' else state'
+		if currentHeight' < 0 then nextBrick state' else state'
 	where
 		dropDelay = getDropDelay level dropKey
 		brickFieldCoords height = toFieldCoords height currentPos
@@ -218,7 +230,21 @@ updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
 					return (-1, False)
 				else return (currentHeight, True)
 			else return (blockDown downCells currentHeight)
-nextBrick (state@(GameState {..})) = state
+nextBrick (state@(GameState {..})) = let
+		(brick, bricks') = Q.dequeue brickQueue
+		emptyBag = Q.null bricks'
+		(newBag, randomState') = runState randomBag randomState
+	in
+		state {
+			randomState = if emptyBag then randomState' else randomState,
+			gracePeriod = False,
+			brickQueue = if emptyBag then newBag else bricks',
+			currentBrick = brick,
+			currentHeight = 22,
+			currentPos = 0,
+			currentRotation = RUp,
+			currentSlide = Nothing
+		}
 
 mergeField :: Field -> [(Int, Int)] -> Tile -> Field
 mergeField field coords tile = field // (coords `zip` (repeat$ Just tile))

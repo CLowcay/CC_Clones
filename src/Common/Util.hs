@@ -18,8 +18,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 module Common.Util where
 
-import Data.Char
+import Control.Monad.State
 import Data.Array
+import Data.Char
+import System.Random
 import Time
 
 -- Compute the difference of two clock times to get a time delta
@@ -60,4 +62,18 @@ slidingWindow n xs
 	| length window < n = []
 	| otherwise = window : slidingWindow n (tail xs)
 	where window = take n xs
+
+-- Compute a random permutation of a list
+permutation :: RandomGen r => [a] -> State r [a]
+permutation [] = return []
+permutation [x] = return [x]
+permutation xs = do
+	gen <- get
+	let (i, gen1) = randomR (0, length xs - 1) gen
+	let (x, xs') = pickOut i xs
+	put gen1
+	rest <- permutation xs' 
+	return (x:rest)
+	where
+		pickOut i xs = let (l1, l2h:l2t) = splitAt i xs in (l2h, l1 ++ l2t)
 

@@ -34,6 +34,7 @@ import Graphics.UI.SDL.Time
 import Graphics.UI.SDL.TTF
 import qualified Common.Queue as Q
 import qualified Data.Map as M
+import System.Random
 import Tetris.Assets
 import Tetris.GameState
 import Tetris.Render
@@ -67,10 +68,13 @@ initSDL = do
 initGameState :: ReaderT Assets IO GameState
 initGameState = do
 	Assets {..} <- ask
-	return GameState {
+	stdGen <- liftIO$newStdGen
+	let (bricks, randomGen) = runState randomBag stdGen
+	return$ nextBrick$ GameState {
 		mode = InGameMode,
+		randomState = randomGen,
 		gracePeriod = False,
-		brickQueue = Q.empty,
+		brickQueue = bricks,
 		currentBrick = IBrick,
 		currentRotation = RUp,
 		currentHeight = 22,
