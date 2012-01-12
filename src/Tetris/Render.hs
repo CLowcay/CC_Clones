@@ -67,7 +67,7 @@ renderFrame state@(GameState {..}) = do
 			Just SlideLeft -> slideFTA
 			Just SlideRight -> - slideFTA
 			Nothing -> 0
-		brickVOffset = - downFTA
+		brickVOffset = if gracePeriod then 0 else - downFTA
 	forM_ brickCoords $ \(x, y) -> liftIO$
 		renderAnimation display 0
 			((realX x) + brickHOffset) ((realY y) + brickVOffset) brickAni
