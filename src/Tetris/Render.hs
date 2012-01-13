@@ -37,7 +37,7 @@ fieldX = 13 :: Int
 fieldY = 13 :: Int
 
 realX x = fieldX + (x * tileS)
-realY y = fieldY + ((21 - y) * tileS)
+realY y = fieldY + ((19 - y) * tileS)
 
 -- Render a frame
 renderFrame :: GameState -> ReaderT Assets IO ()
@@ -47,7 +47,7 @@ renderFrame state@(GameState {..}) = do
 
 	-- render field
 	forM_ (assocs field) $ \((x, y), tm) -> liftIO$
-		when (y < 22) $
+		when (y < 20) $
 			case tm of
 				Nothing -> do
 					fillRect display
@@ -75,8 +75,8 @@ renderFrame state@(GameState {..}) = do
 	liftIO$ do
 		renderAnimation display 0 0 0 (gfx M.! FrameH)
 		renderAnimation display 0 0 13 (gfx M.! FrameV)
-		renderAnimation display 0 0 585 (gfx M.! FrameH)
-		renderAnimation display 0 247 13 (gfx M.! FrameV)
+		renderAnimation display 0 0 533 (gfx M.! FrameH)
+		renderAnimation display 0 273 13 (gfx M.! FrameV)
 
 	when (mode == PausedMode) $ liftIO$
 		renderAnimation display 0 123 160 (gfx M.! Paused)

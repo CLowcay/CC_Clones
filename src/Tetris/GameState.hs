@@ -22,7 +22,8 @@ module Tetris.GameState (
 	GameMode(..), GameState(..),
 	Sfx(..), Channels(..),
 	Tile(..), Brick(..), Rotation(..), SlideAction(..),
-	allTiles, clearField, srsCoords, tile, tileS,
+	allTiles, clearField, srsCoords,
+	srsSpawnHeight, tile, tileS,
 	updateGame, randomBag, nextBrick
 ) where
 
@@ -86,8 +87,8 @@ data GameState = GameState {
 } deriving (Show)
 
 clearField :: Array (Int, Int) (Maybe Tile)
-clearField = array ((0, 0), (8, 22))
-	[((x, y), if x == y then Just RedTile else Nothing)|x <- [0..8], y <- [0..22]]
+clearField = array ((0, 0), (9, 21))
+	[((x, y), Nothing)|x <- [0..9], y <- [0..21]]
 
 data Sfx = SfxTurn | SfxLine
 	deriving (Enum, Ord, Eq, Show)
@@ -151,6 +152,10 @@ srsWallkick _ RLeft RDown        = [(-1, 0), (-1,-1), ( 0, 2), (-1, 2)]
 srsWallkick _ RLeft RUp          = [(-1, 0), (-1,-1), ( 0, 2), (-1, 2)]
 srsWallkick _ RUp RLeft          = [( 1, 0), ( 1, 1), ( 0,-2), ( 1,-2)]
 
+-- Spawning data
+srsSpawnHeight = 21
+srsSpawnPos = 3
+
 -- Get the result of a rotation attempt, including wallkick offsets
 getRotation :: Int -> Int -> Brick ->
 	Rotation -> Rotation -> Field -> (Rotation, Int, Int)
@@ -200,7 +205,7 @@ toFieldCoords height pos = map (\(x, y) -> (x + pos, height - y))
 isValidPosition :: [(Int, Int)] -> Field -> Bool
 isValidPosition coords field =
 	all (\(x, y) ->
-		y >= 0 && x >= 0 && x < 9 && (isNothing$ field ! (x, y))) coords
+		y >= 0 && x >= 0 && x < 10 && (isNothing$ field ! (x, y))) coords
 
 -- Generate a random bag of blocks
 randomBag :: RandomGen r => State r (Q.Queue Brick)
@@ -290,7 +295,8 @@ doTranslation delay (state@(GameState {..})) = let
 				then slideTimer' else resetTimer,
 			field = field',
 			gracePeriod = gracePeriod',
-			currentHeight = if currentHeight' < 0 then 22 else currentHeight',
+			currentHeight = if currentHeight' < 0
+				then srsSpawnHeight else currentHeight',
 			currentPos = currentPos'
 		}, currentHeight' < 0)
 	where
@@ -346,8 +352,8 @@ nextBrick (state@(GameState {..})) = let
 			gracePeriod = False,
 			brickQueue = if emptyBag then newBag else bricks',
 			currentBrick = brick,
-			currentHeight = 22,
-			currentPos = 0,
+			currentHeight = srsSpawnHeight,
+			currentPos = srsSpawnPos,
 			currentRotation = RUp,
 			queuedRotations = 0,       -- cancel all rotations
 			slideTimer = resetTimer,   -- and slides

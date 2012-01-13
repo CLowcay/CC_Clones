@@ -58,7 +58,7 @@ main = do
 initSDL :: IO ()
 initSDL = do
 	Graphics.UI.SDL.init [InitVideo]
-	setVideoMode 680 598 32 [HWSurface, DoubleBuf]
+	setVideoMode 680 546 32 [HWSurface, DoubleBuf]
 	Graphics.UI.SDL.TTF.init
 	openAudio defaultFrequency AudioS16Sys 2 4096
 	allocateChannels (fromEnum ChannelCount)
@@ -77,7 +77,7 @@ initGameState = do
 		brickQueue = bricks,
 		currentBrick = IBrick,
 		currentRotation = RUp,
-		currentHeight = 22,
+		currentHeight = srsSpawnHeight,
 		currentPos = 0,
 		currentSlide = SlideLeft,
 		slideActive = False,
