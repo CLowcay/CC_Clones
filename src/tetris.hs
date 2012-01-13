@@ -81,6 +81,7 @@ initGameState = do
 		currentPos = 0,
 		currentSlide = SlideLeft,
 		slideActive = False,
+		queuedRotations = 0,
 		field = clearField,
 		downTimer = resetTimer,
 		slideTimer = resetTimer,
@@ -114,8 +115,11 @@ mainLoop time0 state0 = do
 gameEventHandler :: EventHandler GameState
 gameEventHandler Quit = return False
 gameEventHandler (KeyDown sym) = do
-	state <- get
+	state@(GameState {queuedRotations}) <- get
 	case (symKey sym) of
+		SDLK_UP -> do
+			put$state {queuedRotations = queuedRotations + 1}
+			return True
 		SDLK_DOWN -> do
 			put$state {dropKey = True}
 			return True

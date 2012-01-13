@@ -72,6 +72,7 @@ data GameState = GameState {
 	currentPos :: Int, -- 0 indexed, axis goes left to right
 	currentSlide :: SlideAction,
 	slideActive :: Bool,
+	queuedRotations :: Int,  -- number of rotations to perform
 	field :: Field,
 	downTimer :: AniTimer,
 	slideTimer :: AniTimer,
@@ -169,6 +170,28 @@ getRotation height pos brick from to field =
 		offsetCoords (xOff, yOff) =
 			map (\(x, y) -> (x + xOff, y + yOff)) toCoords
 
+-- Do a clockwise rotation
+rotateR :: Field -> Brick -> (Rotation, Int, Int) -> (Rotation, Int, Int)
+rotateR field brick (from, height, pos) = 
+	getRotation height pos brick from to field
+	where
+		to = case from of
+			RUp -> RRight
+			RDown -> RLeft
+			RLeft -> RUp
+			RRight -> RDown
+
+-- Do an anti-clockwise rotation
+rotateL :: Field -> Brick -> (Rotation, Int, Int) -> (Rotation, Int, Int)
+rotateL field brick (from, height, pos) = 
+	getRotation height pos brick from to field
+	where
+		to = case from of
+			RRight -> RUp
+			RLeft -> RDown
+			RUp -> RLeft
+			RDown -> RRight
+
 -- Convert block coordinates to field coordinates
 toFieldCoords :: Int -> Int -> [(Int, Int)] -> [(Int, Int)]
 toFieldCoords height pos = map (\(x, y) -> (x + pos, height - y))
@@ -250,7 +273,7 @@ updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
 			SlideLeft -> - slideCellsN
 			SlideRight -> slideCellsN
 		currentPos' = currentPos + (validSlide slideCells)
-		state' = state {
+		state' = doRotations$ state {
 			mode = InGameMode,
 			downFTA = downFTA',
 			slideFTA = slideFTA',
@@ -291,6 +314,7 @@ updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
 			else if cells < 0
 				then validSlide (cells + 1) else validSlide (cells - 1)
 
+-- work out the next brick
 nextBrick (state@(GameState {..})) = let
 		(brick, bricks') = Q.dequeue brickQueue
 		emptyBag = Q.null bricks'
@@ -306,6 +330,21 @@ nextBrick (state@(GameState {..})) = let
 			currentRotation = RUp,
 			slideTimer = resetTimer,
 			slideFTA = 0
+		}
+
+-- process any rotations that have been queued
+doRotations (state@(GameState {..})) = let
+	(currentRotation', currentHeight', currentPos') =
+		if queuedRotations > 0
+		then times queuedRotations (rotateL field currentBrick)$
+			(currentRotation, currentHeight, currentPos)
+		else (currentRotation, currentHeight, currentPos)
+	in
+		state {
+			queuedRotations = 0,
+			currentRotation = currentRotation',
+			currentHeight = currentHeight',
+			currentPos = currentPos'
 		}
 
 mergeField :: Field -> [(Int, Int)] -> Tile -> Field
