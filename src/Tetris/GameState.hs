@@ -128,6 +128,27 @@ srsCoords ZBrick RRight = [(2, 0), (2, 1), (1, 1), (1, 2)]
 srsCoords ZBrick RDown = [(0, 1), (1, 1), (1, 2), (2, 2)]
 srsCoords ZBrick RLeft = [(1, 0), (1, 1), (0, 1), (0, 2)]
 
+-- Offsets to try for wallkicks, according to the SRS rotation scheme
+-- Of course, we try (0, 0) first, no need to encode that here...
+srsWallkick :: Brick -> Rotation -> Rotation -> [(Int, Int)]
+srsWallkick IBrick RUp RRight    = [(-2, 0), ( 1, 0), (-2,-1), ( 1, 2)]
+srsWallkick IBrick RRight RUp    = [( 2, 0), (-1, 0), ( 2, 1), (-1,-2)]
+srsWallkick IBrick RRight RDown  = [(-1, 0), ( 2, 0), (-1, 2), ( 2,-1)]
+srsWallkick IBrick RDown RRight  = [( 1, 0), (-2, 0), ( 1,-2), (-2, 1)]
+srsWallkick IBrick RDown RLeft   = [( 2, 0), (-1, 0), ( 2, 1), (-1,-2)]
+srsWallkick IBrick RLeft RDown   = [(-2, 0), ( 1, 0), (-2,-1), ( 1, 2)]
+srsWallkick IBrick RLeft RUp     = [( 1, 0), (-2, 0), ( 1,-2), (-2, 1)]
+srsWallkick IBrick RUp RLeft     = [(-1, 0), ( 2, 0), (-1, 2), ( 2,-1)]
+
+srsWallkick _ RUp RRight         = [(-1, 0), (-1, 1), ( 0,-2), (-1,-2)]
+srsWallkick _ RRight RUp         = [( 1, 0), ( 1,-1), ( 0, 2), ( 1, 2)]
+srsWallkick _ RRight RDown       = [( 1, 0), ( 1,-1), ( 0, 2), ( 1, 2)]
+srsWallkick _ RDown RRight       = [(-1, 0), (-1, 1), ( 0,-2), (-1,-2)]
+srsWallkick _ RDown RLeft        = [( 1, 0), ( 1, 1), ( 0,-2), ( 1,-2)]
+srsWallkick _ RLeft RDown        = [(-1, 0), (-1,-1), ( 0, 2), (-1, 2)]
+srsWallkick _ RLeft RUp          = [(-1, 0), (-1,-1), ( 0, 2), (-1, 2)]
+srsWallkick _ RUp RLeft          = [( 1, 0), ( 1, 1), ( 0,-2), ( 1,-2)]
+
 -- Convert block coordinates to field coordinates
 toFieldCoords :: Int -> Int -> [(Int, Int)] -> [(Int, Int)]
 toFieldCoords height pos = map (\(x, y) -> (x + pos, height - y))
