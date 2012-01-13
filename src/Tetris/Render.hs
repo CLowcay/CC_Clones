@@ -64,9 +64,8 @@ renderFrame state@(GameState {..}) = do
 				srsCoords currentBrick currentRotation
 		brickAni = gfx M.! (tile currentBrick)
 		brickHOffset = case currentSlide of
-			Just SlideLeft -> slideFTA
-			Just SlideRight -> - slideFTA
-			Nothing -> 0
+			SlideLeft -> slideFTA
+			SlideRight -> - slideFTA
 		brickVOffset = if gracePeriod then 0 else - downFTA
 	forM_ brickCoords $ \(x, y) -> liftIO$
 		renderAnimation display 0

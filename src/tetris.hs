@@ -79,7 +79,8 @@ initGameState = do
 		currentRotation = RUp,
 		currentHeight = 22,
 		currentPos = 0,
-		currentSlide = Nothing,
+		currentSlide = SlideLeft,
+		slideActive = False,
 		field = clearField,
 		downTimer = resetTimer,
 		slideTimer = resetTimer,
@@ -119,10 +120,10 @@ gameEventHandler (KeyDown sym) = do
 			put$state {dropKey = True}
 			return True
 		SDLK_LEFT -> do
-			put$state {currentSlide = Just SlideLeft}
+			put$state {slideActive = True, currentSlide = SlideLeft}
 			return True
 		SDLK_RIGHT -> do
-			put$state {currentSlide = Just SlideRight}
+			put$state {slideActive = True, currentSlide = SlideRight}
 			return True
 		SDLK_ESCAPE -> return False
 		_ -> return True
@@ -131,6 +132,12 @@ gameEventHandler (KeyUp sym) = do
 	case (symKey sym) of
 		SDLK_DOWN -> do
 			put$state {dropKey = False}
+			return True
+		SDLK_LEFT -> do
+			put$state {slideActive = False}
+			return True
+		SDLK_RIGHT -> do
+			put$state {slideActive = False}
 			return True
 		_ -> return True
 gameEventHandler _ = return True

@@ -69,7 +69,8 @@ data GameState = GameState {
 	currentRotation :: Rotation,
 	currentHeight :: Int, -- 0 indexed, axis bottom to top
 	currentPos :: Int, -- 0 indexed, axis goes left to right
-	currentSlide :: Maybe SlideAction,
+	currentSlide :: SlideAction,
+	slideActive :: Bool,
 	field :: Field,
 	downTimer :: AniTimer,
 	slideTimer :: AniTimer,
@@ -134,7 +135,8 @@ toFieldCoords height pos = map (\(x, y) -> (x + pos, height - y))
 -- Determine if a list of field coordinates are a valid block position
 isValidPosition :: [(Int, Int)] -> Field -> Bool
 isValidPosition coords field =
-	all (\(x, y) -> y >= 0 && (isNothing$ field ! (x, y))) coords
+	all (\(x, y) ->
+		y >= 0 && x >= 0 && x < 9 && (isNothing$ field ! (x, y))) coords
 
 -- Generate a random bag of blocks
 randomBag :: RandomGen r => State r (Q.Queue Brick)
@@ -166,7 +168,7 @@ gameOverDelay :: Double
 gameOverDelay = ((1 :: Double) * 10^3) * 4
 
 slideDelay :: Double
-slideDelay = ((1 :: Double) * 10 ^ 3) / ((fromIntegral tileS) * 2)
+slideDelay = ((1 :: Double) * 10 ^ 3) / ((fromIntegral tileS) * 4)
 
 -- Determine the next GameState from the current GameState
 updateGame :: Int -> GameState -> GameState
@@ -197,27 +199,37 @@ updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
 			runState (updateBrick downCells) field
 		slideOffset' = slideFTA - slideFrames
 		slideFTA' = if slideOffset' < 0
-			then slideOffset' `mod` tileS else slideOffset'
+			then if slideActive && (validSlide slideCells /= 0)
+				then slideOffset' `mod` tileS
+				else 0
+			else slideOffset'
+		slideCellsN = if slideOffset' < 0 && slideActive
+			then (abs slideOffset' `div` tileS) + 1 else 0
+		slideCells = case currentSlide of
+			SlideLeft -> - slideCellsN
+			SlideRight -> slideCellsN
+		currentPos' = currentPos + (validSlide slideCells)
 		state' = state {
 			mode = InGameMode,
 			downFTA = downFTA',
-			slideFTA = if isSliding then slideFTA' else slideFTA,
+			slideFTA = slideFTA',
 			downTimer = downTimer',
-			slideTimer = if isSliding then slideTimer' else slideTimer,
+			slideTimer = if slideActive || slideFTA' > 0
+				then slideTimer' else resetTimer,
 			field = field',
 			gracePeriod = gracePeriod',
-			currentHeight = if currentHeight' < 0 then 22 else currentHeight'
+			currentHeight = if currentHeight' < 0 then 22 else currentHeight',
+			currentPos = currentPos'
 		}
 	in
 		if currentHeight' < 0 then nextBrick state' else state'
 	where
 		dropDelay = getDropDelay level dropKey
-		isSliding = isJust currentSlide
-		brickFieldCoords height = toFieldCoords height currentPos
+		brickFieldCoords height pos = toFieldCoords height pos
 			(srsCoords currentBrick currentRotation)
 		blockDown 0 height = (height, False)
 		blockDown downCells height =
-			if isValidPosition (brickFieldCoords (height - 1)) field
+			if isValidPosition (brickFieldCoords (height - 1) currentPos) field
 				then blockDown (downCells - 1) (height - 1)
 				else (height, True)
 		updateBrick :: Int -> State Field (Int, Bool)
@@ -226,10 +238,18 @@ updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
 				if downCells > 0 then do
 					currentField <- get
 					put$ mergeField currentField
-						(brickFieldCoords currentHeight) (tile currentBrick)
+						(brickFieldCoords currentHeight currentPos) (tile currentBrick)
 					return (-1, False)
 				else return (currentHeight, True)
 			else return (blockDown downCells currentHeight)
+		validSlide 0 = 0
+		validSlide cells =
+			if isValidPosition
+				(brickFieldCoords currentHeight (currentPos + cells)) field
+			then cells
+			else if cells < 0
+				then validSlide (cells + 1) else validSlide (cells - 1)
+
 nextBrick (state@(GameState {..})) = let
 		(brick, bricks') = Q.dequeue brickQueue
 		emptyBag = Q.null bricks'
@@ -243,7 +263,8 @@ nextBrick (state@(GameState {..})) = let
 			currentHeight = 22,
 			currentPos = 0,
 			currentRotation = RUp,
-			currentSlide = Nothing
+			slideTimer = resetTimer,
+			slideFTA = 0
 		}
 
 mergeField :: Field -> [(Int, Int)] -> Tile -> Field
