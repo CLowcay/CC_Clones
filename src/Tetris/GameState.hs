@@ -31,6 +31,7 @@ import Common.Counters
 import Common.Util
 import Control.Monad.State
 import Data.Array
+import Data.List
 import Data.Maybe
 import Debug.Trace
 import qualified Common.Queue as Q
@@ -148,6 +149,25 @@ srsWallkick _ RDown RLeft        = [( 1, 0), ( 1, 1), ( 0,-2), ( 1,-2)]
 srsWallkick _ RLeft RDown        = [(-1, 0), (-1,-1), ( 0, 2), (-1, 2)]
 srsWallkick _ RLeft RUp          = [(-1, 0), (-1,-1), ( 0, 2), (-1, 2)]
 srsWallkick _ RUp RLeft          = [( 1, 0), ( 1, 1), ( 0,-2), ( 1,-2)]
+
+-- Get the result of a rotation attempt, including wallkick offsets
+getRotation :: Int -> Int -> Brick ->
+	Rotation -> Rotation -> Field -> (Rotation, Int, Int)
+-- The OBrick can be rotated to any orientation without wallkicks
+getRotation height pos OBrick _ to _ = (to, height, pos)
+-- The other bricks may involve wallkicks, or may fail
+getRotation height pos brick from to field =
+	let
+		trials = (0, 0):(srsWallkick brick from to)
+		fit = find (\trial -> isValidPosition (offsetCoords trial) field) trials
+	in
+		case fit of
+			Nothing -> (from, height, pos)
+			Just (xOff, yOff) -> (to, height + yOff, pos + xOff)
+	where
+		toCoords = toFieldCoords height pos (srsCoords brick to)
+		offsetCoords (xOff, yOff) =
+			map (\(x, y) -> (x + xOff, y + yOff)) toCoords
 
 -- Convert block coordinates to field coordinates
 toFieldCoords :: Int -> Int -> [(Int, Int)] -> [(Int, Int)]
