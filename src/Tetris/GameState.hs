@@ -250,6 +250,14 @@ updateGame delay (state@(GameState {mode = GameOverMode})) =
 updateGame _ (state@(GameState {mode = PausedMode})) = state
 updateGame _ (state@(GameState {mode = IntroMode})) = state
 updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
+		(state', doNextBrick) = doTranslation delay state
+	in
+		if doNextBrick then nextBrick state' else doRotations state'
+
+-- process translations (gravity and sliding), returns True when the
+-- current brick has been placed
+doTranslation :: Int -> GameState -> (GameState, Bool)
+doTranslation delay (state@(GameState {..})) = let
 		(downFrames, downTimer') =
 			runState (advanceFrames delay dropDelay) downTimer
 		(slideFrames, slideTimer') =
@@ -273,8 +281,8 @@ updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
 			SlideLeft -> - slideCellsN
 			SlideRight -> slideCellsN
 		currentPos' = currentPos + (validSlide slideCells)
-		state' = doRotations$ state {
-			mode = InGameMode,
+	in
+		(state {
 			downFTA = downFTA',
 			slideFTA = slideFTA',
 			downTimer = downTimer',
@@ -284,9 +292,7 @@ updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
 			gracePeriod = gracePeriod',
 			currentHeight = if currentHeight' < 0 then 22 else currentHeight',
 			currentPos = currentPos'
-		}
-	in
-		if currentHeight' < 0 then nextBrick state' else state'
+		}, currentHeight' < 0)
 	where
 		dropDelay = getDropDelay level dropKey
 		brickFieldCoords height pos = toFieldCoords height pos
@@ -314,24 +320,6 @@ updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
 			else if cells < 0
 				then validSlide (cells + 1) else validSlide (cells - 1)
 
--- work out the next brick
-nextBrick (state@(GameState {..})) = let
-		(brick, bricks') = Q.dequeue brickQueue
-		emptyBag = Q.null bricks'
-		(newBag, randomState') = runState randomBag randomState
-	in
-		state {
-			randomState = if emptyBag then randomState' else randomState,
-			gracePeriod = False,
-			brickQueue = if emptyBag then newBag else bricks',
-			currentBrick = brick,
-			currentHeight = 22,
-			currentPos = 0,
-			currentRotation = RUp,
-			slideTimer = resetTimer,
-			slideFTA = 0
-		}
-
 -- process any rotations that have been queued
 doRotations (state@(GameState {..})) = let
 	(currentRotation', currentHeight', currentPos') =
@@ -346,6 +334,26 @@ doRotations (state@(GameState {..})) = let
 			currentHeight = currentHeight',
 			currentPos = currentPos'
 		}
+
+-- work out the next brick
+nextBrick (state@(GameState {..})) = let
+		(brick, bricks') = Q.dequeue brickQueue
+		emptyBag = Q.null bricks'
+		(newBag, randomState') = runState randomBag randomState
+	in
+		state {
+			randomState = if emptyBag then randomState' else randomState,
+			gracePeriod = False,
+			brickQueue = if emptyBag then newBag else bricks',
+			currentBrick = brick,
+			currentHeight = 22,
+			currentPos = 0,
+			currentRotation = RUp,
+			queuedRotations = 0,       -- cancel all rotations
+			slideTimer = resetTimer,   -- and slides
+			slideFTA = 0
+		}
+
 
 mergeField :: Field -> [(Int, Int)] -> Tile -> Field
 mergeField field coords tile = field // (coords `zip` (repeat$ Just tile))
