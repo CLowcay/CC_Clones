@@ -25,9 +25,11 @@ module Tetris.Assets (
 
 import Common.Assets
 import Common.Graphics
+import Control.Monad
 import Data.Array
 import Graphics.UI.SDL
 import Graphics.UI.SDL.Mixer
+import Graphics.UI.SDL.Rotozoomer
 import Graphics.UI.SDL.TTF
 import qualified Data.Map as M
 import Tetris.GameState
@@ -73,6 +75,14 @@ loadSprites = do
 	greyTile <- loadBMP$ getAssetPath "gfx/GreyTile.bmp"
 	greenTile <- loadBMP$ getAssetPath "gfx/GreenTile.bmp"
 
+	redTileAni <-  makeShrinkingAnimation redTile tileS tileS 20
+	pinkTileAni <- makeShrinkingAnimation pinkTile tileS tileS 20
+	yellowTileAni <- makeShrinkingAnimation yellowTile tileS tileS 20
+	orangeTileAni <- makeShrinkingAnimation orangeTile tileS tileS 20
+	blueTileAni <- makeShrinkingAnimation blueTile tileS tileS 20
+	greyTileAni <- makeShrinkingAnimation greyTile tileS tileS 20
+	greenTileAni <- makeShrinkingAnimation greenTile tileS tileS 20
+
 	mapM_ (\surface ->
 			setColorKey surface [SrcColorKey] (Pixel 0x00FF00FF))
 		[paused, gameOver, digits]
@@ -83,13 +93,13 @@ loadSprites = do
 		tileAnimation GameOverTile = makeAnimation gameOver 200 64 0 0
 		tileAnimation FrameH = makeAnimation frameH 286 13 0 0
 		tileAnimation FrameV = makeAnimation frameV 13 520 0 0
-		tileAnimation RedTile = makeAnimation redTile tileS tileS 0 0
-		tileAnimation PinkTile = makeAnimation pinkTile tileS tileS 0 0
-		tileAnimation YellowTile = makeAnimation yellowTile tileS tileS 0 0
-		tileAnimation OrangeTile = makeAnimation orangeTile tileS tileS 0 0
-		tileAnimation BlueTile = makeAnimation blueTile tileS tileS 0 0
-		tileAnimation GreyTile = makeAnimation greyTile tileS tileS 0 0
-		tileAnimation GreenTile = makeAnimation greenTile tileS tileS 0 0
+		tileAnimation RedTile = redTileAni
+		tileAnimation PinkTile = pinkTileAni
+		tileAnimation YellowTile = yellowTileAni
+		tileAnimation OrangeTile = orangeTileAni
+		tileAnimation BlueTile = blueTileAni
+		tileAnimation GreyTile = greyTileAni
+		tileAnimation GreenTile = greenTileAni
 
 	return$ M.fromList$ map (\tile ->
 		(tile, tileAnimation tile)) allTiles
@@ -104,4 +114,27 @@ makeAnimation surface w h x y =
 		surface = surface,
 		frames = listArray (0, 0) [Rect (x * w) (y * h) w h]
 	}
+
+makeShrinkingAnimation :: Surface -> Int -> Int -> Int -> (IO Animation)
+makeShrinkingAnimation surface w h frames = do
+	let factors = map
+		(\x -> 1.0 - ((jimmyTypes x)/(jimmyTypes (frames - 1))))
+		[1..(frames - 1)]
+	genFrames <- mapM (\factor -> zoom surface factor factor True) factors
+
+	allFrames <- createRGBSurface [HWSurface] (frames * w) h 32
+		0x000000FF 0x0000FF00 0x00FF0000 0xFF000000 >>= displayFormat
+
+	blitSurface surface (Just$Rect 0 0 w h) allFrames (Just$Rect 0 0 w h)
+	forM_ (genFrames `zip` [1..]) $ \(genFrame, i) ->
+		blitSurface genFrame (Just$Rect 0 0 w h)
+			allFrames (Just$Rect (w * i) 0 w h)
+	
+	return$ Animation {
+		surface = allFrames,
+		frames = listArray (0, (frames - 1))
+			[Rect (i * w) 0 w h | i <- [0..(frames - 1)]]
+	}
+	where
+		jimmyTypes = fromInteger.toInteger
 
