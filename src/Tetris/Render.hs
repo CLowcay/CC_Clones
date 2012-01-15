@@ -29,6 +29,7 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Reader
 import Data.Array
 import Graphics.UI.SDL
+import qualified Common.Queue as Q
 import qualified Data.Map as M
 import Tetris.Assets
 import Tetris.GameState
@@ -79,6 +80,16 @@ renderFrame state@(GameState {..}) = do
 		renderAnimation display 0 273 13 (gfx M.! FrameV)
 		renderAnimation display 0 286 0 (gfx M.! SidePanel)
 
+	-- render preview
+	when showPreview$ do
+		let
+			previewBrick = Q.head brickQueue
+			previewAni = gfx M.! (tile previewBrick)
+			previewCoords = srsCoords previewBrick RUp
+		forM_ previewCoords $ \(x, y) -> liftIO$
+			renderAnimation display 0
+				(325 + x * tileS) (230 + y * tileS) previewAni
+	
 	when (mode == PausedMode) $ liftIO$
 		renderAnimation display 0 123 160 (gfx M.! Paused)
 

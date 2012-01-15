@@ -74,7 +74,7 @@ initGameState = do
 		mode = InGameMode,
 		randomState = randomGen,
 		gracePeriod = False,
-		brickQueue = bricks,
+		brickQueue = Q.empty `Q.enqueueMany` bricks,
 		currentBrick = IBrick,
 		currentRotation = RUp,
 		currentHeight = srsSpawnHeight,
@@ -93,7 +93,8 @@ initGameState = do
 		score = 0, scoreCounter = initCounter (gfx M.! Digits) 5,
 		sfxEvents = [],
 		level = 0, levelCounter = initCounter (gfx M.! Digits) 2,
-		dropKey = False
+		dropKey = False,
+		showPreview = True
 	}
 
 -- The main game loop
@@ -118,7 +119,7 @@ mainLoop time0 state0 = do
 gameEventHandler :: EventHandler GameState
 gameEventHandler Quit = return False
 gameEventHandler (KeyDown sym) = do
-	state@(GameState {queuedRotations}) <- get
+	state@(GameState {queuedRotations, showPreview}) <- get
 	case (symKey sym) of
 		SDLK_UP -> do
 			put$state {queuedRotations = queuedRotations + 1}
@@ -133,6 +134,9 @@ gameEventHandler (KeyDown sym) = do
 			put$state {slideActive = True, currentSlide = SlideRight}
 			return True
 		SDLK_ESCAPE -> return False
+		SDLK_p -> do
+			put$state {showPreview = not showPreview}
+			return True
 		_ -> return True
 gameEventHandler (KeyUp sym) = do
 	state <- get

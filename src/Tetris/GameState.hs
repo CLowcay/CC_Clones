@@ -50,9 +50,7 @@ data Tile = Digits | Paused | GameOverTile |
 allTiles = enumFrom Digits   -- A list of all the tiles
 
 data Brick = IBrick | JBrick | LBrick | OBrick | SBrick | TBrick | ZBrick
-	deriving (Enum, Ord, Eq, Show)
-firstBrick = IBrick
-lastBrick = ZBrick
+	deriving (Enum, Bounded, Ord, Eq, Show)
 data Rotation = RUp | RDown | RLeft | RRight
 	deriving (Enum, Ord, Eq, Show)
 
@@ -86,8 +84,12 @@ data GameState = GameState {
 	score :: Int, scoreCounter :: CounterState,
 	sfxEvents :: [(Sfx, Channels)],  -- sounds to be played after rendering
 	level :: Int, levelCounter :: CounterState,
-	dropKey :: Bool
+	dropKey :: Bool,
+	showPreview :: Bool
 } deriving (Show)
+
+-- How many bricks to show in the preview
+previewBricks = 1
 
 clearField :: Array (Int, Int) (Maybe Tile)
 clearField = array ((0, 0), (9, 21))
@@ -211,10 +213,8 @@ isValidPosition coords field =
 		y >= 0 && x >= 0 && x < 10 && (isNothing$ field ! (x, y))) coords
 
 -- Generate a random bag of blocks
-randomBag :: RandomGen r => State r (Q.Queue Brick)
-randomBag = do
-	p <- permutation [firstBrick..lastBrick]
-	return (Q.enqueueMany Q.empty p)
+randomBag :: RandomGen r => State r [Brick]
+randomBag = permutation [minBound..maxBound]
 
 -- How big is a cell
 tileS = 26 :: Int
@@ -361,13 +361,14 @@ doRotations (state@(GameState {..})) = let
 -- work out the next brick
 nextBrick (state@(GameState {..})) = let
 		(brick, bricks') = Q.dequeue brickQueue
-		emptyBag = Q.null bricks'
+		emptyBag = Q.length bricks' < previewBricks
 		(newBag, randomState') = runState randomBag randomState
 	in
 		state {
 			randomState = if emptyBag then randomState' else randomState,
 			gracePeriod = False,
-			brickQueue = if emptyBag then newBag else bricks',
+			brickQueue = if emptyBag
+				then bricks' `Q.enqueueMany` newBag else bricks',
 			currentBrick = brick,
 			currentHeight = srsSpawnHeight,
 			currentPos = srsSpawnPos,
