@@ -43,7 +43,7 @@ data GameMode =
 	deriving (Enum, Eq, Show)
 
 data Tile = Digits | Paused | GameOverTile |
-	FrameH | FrameV |
+	FrameH | FrameV | SidePanel |
 	RedTile | PinkTile | YellowTile |
 	OrangeTile | BlueTile | GreyTile | GreenTile
 	deriving (Enum, Ord, Eq, Show)

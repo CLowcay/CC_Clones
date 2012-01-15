@@ -66,6 +66,7 @@ loadSprites = do
 
 	frameH <- loadBMP$ getAssetPath "gfx/FrameH.bmp"
 	frameV <- loadBMP$ getAssetPath "gfx/FrameV.bmp"
+	sidePanel <- loadBMP$ getAssetPath "gfx/TetrisPanel.bmp"
 	
 	redTile <- loadBMP$ getAssetPath "gfx/RedTile.bmp"
 	pinkTile <- loadBMP$ getAssetPath "gfx/PinkTile.bmp"
@@ -85,7 +86,7 @@ loadSprites = do
 
 	mapM_ (\surface ->
 			setColorKey surface [SrcColorKey] (Pixel 0x00FF00FF))
-		[paused, gameOver, digits]
+		[paused, gameOver, digits, sidePanel]
 
 	let
 		tileAnimation Digits = makeAnimation digits 20 180 0 0
@@ -93,6 +94,7 @@ loadSprites = do
 		tileAnimation GameOverTile = makeAnimation gameOver 200 64 0 0
 		tileAnimation FrameH = makeAnimation frameH 286 13 0 0
 		tileAnimation FrameV = makeAnimation frameV 13 520 0 0
+		tileAnimation SidePanel = makeAnimation sidePanel 195 546 0 0
 		tileAnimation RedTile = redTileAni
 		tileAnimation PinkTile = pinkTileAni
 		tileAnimation YellowTile = yellowTileAni

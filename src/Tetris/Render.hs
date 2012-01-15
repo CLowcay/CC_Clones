@@ -77,6 +77,7 @@ renderFrame state@(GameState {..}) = do
 		renderAnimation display 0 0 13 (gfx M.! FrameV)
 		renderAnimation display 0 0 533 (gfx M.! FrameH)
 		renderAnimation display 0 273 13 (gfx M.! FrameV)
+		renderAnimation display 0 286 0 (gfx M.! SidePanel)
 
 	when (mode == PausedMode) $ liftIO$
 		renderAnimation display 0 123 160 (gfx M.! Paused)
