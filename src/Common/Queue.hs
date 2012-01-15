@@ -17,11 +17,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 -}
 
 module Common.Queue (
-	Queue, empty, null, enqueue, enqueueMany, dequeue
+	Queue, empty, null, length, enqueue, enqueueMany, dequeue, head
 ) where
 
 import Data.Sequence ((|>), (><), ViewL((:<)))
-import Prelude hiding (null)
+import Prelude hiding (null, length, head)
 import qualified Data.Foldable as F
 import qualified Data.Sequence as Seq
 
@@ -34,6 +34,9 @@ empty = Queue (Seq.empty)
 null :: Queue a -> Bool
 null q = Seq.null (innerSeq q)
 
+length :: Queue a -> Int
+length q = Seq.length (innerSeq q)
+
 enqueue :: Queue a -> a -> Queue a
 enqueue q x = Queue ((innerSeq q) |> x)
 
@@ -45,4 +48,10 @@ dequeue q =
 	case Seq.viewl (innerSeq q) of
 		Seq.EmptyL -> error "attempt to dequeue an empty queue"
 		x :< xs -> (x, Queue xs)
+
+head :: Queue a -> a
+head q =
+	case Seq.viewl (innerSeq q) of
+		Seq.EmptyL -> error "attempt to take the head of an empty queue"
+		x :< _ -> (x)
 
