@@ -90,7 +90,7 @@ initGameState = do
 		downFTA = 0,
 		slideFTA = 0,
 		lineFTA = 0,
-		score = 0, scoreCounter = initCounter (gfx M.! Digits) 5,
+		score = 0, scoreCounter = initCounter (gfx M.! Digits) 6,
 		sfxEvents = [],
 		level = 0, levelCounter = initCounter (gfx M.! Digits) 2,
 		dropKey = False,
