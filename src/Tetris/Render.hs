@@ -54,7 +54,7 @@ renderFrame state@(GameState {..}) = do
 						(Just$Rect (realX x) (realY y) tileS tileS) (Pixel 0)
 					return ()
 				Just tile ->
-					renderAnimation display 0
+					renderAnimation display (fieldTileFrame y)
 						(realX x) (realY y) (gfx M.! tile)
 
 	-- render brick
@@ -86,4 +86,6 @@ renderFrame state@(GameState {..}) = do
 
 	liftIO$ Graphics.UI.SDL.flip display
 	return ()
+	where
+		fieldTileFrame y = if y `elem` fullLines then 19 - lineFTA else 0
 

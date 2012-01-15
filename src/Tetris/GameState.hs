@@ -74,12 +74,15 @@ data GameState = GameState {
 	currentSlide :: SlideAction,
 	slideActive :: Bool,
 	queuedRotations :: Int,  -- number of rotations to perform
+	fullLines :: [Int], -- completed lines
 	field :: Field,
 	downTimer :: AniTimer,
 	slideTimer :: AniTimer,
+	lineTimer :: AniTimer,
 	-- FTA = Frames To Alignment
 	downFTA :: Int,
 	slideFTA :: Int,
+	lineFTA :: Int,
 	score :: Int, scoreCounter :: CounterState,
 	sfxEvents :: [(Sfx, Channels)],  -- sounds to be played after rendering
 	level :: Int, levelCounter :: CounterState,
@@ -239,6 +242,9 @@ gameOverDelay = ((1 :: Double) * 10^3) * 4
 slideDelay :: Double
 slideDelay = ((1 :: Double) * 10 ^ 3) / ((fromIntegral tileS) * 4)
 
+lineDelay :: Double
+lineDelay = ((1 :: Double) * 10 ^ 3) / ((fromIntegral tileS) * 4)
+
 -- Determine the next GameState from the current GameState
 updateGame :: Int -> GameState -> GameState
 updateGame delay (state@(GameState {mode = GameOverMode})) =
@@ -257,7 +263,9 @@ updateGame _ (state@(GameState {mode = IntroMode})) = state
 updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
 		(state', doNextBrick) = doTranslation delay state
 	in
-		if doNextBrick then nextBrick state' else doRotations state'
+		if doNextBrick
+			then nextBrick (removeLines state')
+			else doRotations state'
 
 -- process translations (gravity and sliding), returns True when the
 -- current brick has been placed
@@ -267,6 +275,9 @@ doTranslation delay (state@(GameState {..})) = let
 			runState (advanceFrames delay dropDelay) downTimer
 		(slideFrames, slideTimer') =
 			runState (advanceFrames delay slideDelay) slideTimer
+		(lineFrames, lineTimer') =
+			runState (advanceFrames delay lineDelay) lineTimer
+
 		downOffset' = downFTA - downFrames
 		downFTA' = if downOffset' < 0
 			then downOffset' `mod` tileS else downOffset'
@@ -274,6 +285,7 @@ doTranslation delay (state@(GameState {..})) = let
 			then (abs downOffset' `div` tileS) + 1 else 0
 		((currentHeight', gracePeriod'), field') =
 			runState (updateBrick downCells) field
+
 		slideOffset' = slideFTA - slideFrames
 		slideFTA' = if slideOffset' < 0
 			then if slideActive && (validSlide slideCells /= 0)
@@ -286,14 +298,19 @@ doTranslation delay (state@(GameState {..})) = let
 			SlideLeft -> - slideCellsN
 			SlideRight -> slideCellsN
 		currentPos' = currentPos + (validSlide slideCells)
+
+		lineFTA' = lineFTA - lineFrames
 	in
 		(state {
 			downFTA = downFTA',
 			slideFTA = slideFTA',
+			lineFTA = if lineFTA' < 0 then 0 else lineFTA',
 			downTimer = downTimer',
 			slideTimer = if slideActive || slideFTA' > 0
 				then slideTimer' else resetTimer,
-			field = field',
+			lineTimer = if lineFTA' < 0 then resetTimer else lineTimer',
+			field = if lineFTA' < 0 then clearLines field' fullLines else field',
+			fullLines = if lineFTA' < 0 then [] else fullLines,
 			gracePeriod = gracePeriod',
 			currentHeight = if currentHeight' < 0
 				then srsSpawnHeight else currentHeight',
@@ -360,6 +377,30 @@ nextBrick (state@(GameState {..})) = let
 			slideFTA = 0
 		}
 
+-- find lines and schedule them for removal
+removeLines (state@(GameState {..})) =
+	state {
+		fullLines = filter (isLine) [0..19],
+		lineTimer = resetTimer,
+		lineFTA = 19
+	}
+	where
+		isLine y = all (\x -> isJust$ field!(x, y)) [0..9]
+
+-- clear all lines scheduled for removal
+clearLines :: Field -> [Int] -> Field
+clearLines field ys = let
+		keepLines = filter (not.(`elem` ys)) [0..21]
+		allLines = take 22$
+			(map (getLine) keepLines) ++ (repeat blankLine)
+	in
+		array ((0, 0), (9, 21))
+			[((x, y), tile) |
+				(y, line) <- [0..] `zip` allLines,
+				(x, tile) <- [0..] `zip` line]
+	where
+		getLine y = map (\x -> field!(x, y)) [0..9]
+		blankLine = replicate 10 Nothing
 
 mergeField :: Field -> [(Int, Int)] -> Tile -> Field
 mergeField field coords tile = field // (coords `zip` (repeat$ Just tile))
