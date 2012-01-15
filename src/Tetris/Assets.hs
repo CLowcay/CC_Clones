@@ -120,20 +120,22 @@ makeShrinkingAnimation surface w h frames = do
 	let factors = map
 		(\x -> 1.0 - ((jimmyTypes x)/(jimmyTypes (frames - 1))))
 		[1..(frames - 1)]
+	let offsets = 0:map
+		(\factor -> round$ ((jimmyTypes w) *  (1.0 - factor)) / 2.0) factors
 	genFrames <- mapM (\factor -> zoom surface factor factor True) factors
 
 	allFrames <- createRGBSurface [HWSurface] (frames * w) h 32
 		0x000000FF 0x0000FF00 0x00FF0000 0xFF000000 >>= displayFormat
 
 	blitSurface surface (Just$Rect 0 0 w h) allFrames (Just$Rect 0 0 w h)
-	forM_ (genFrames `zip` [1..]) $ \(genFrame, i) ->
+	forM_ (zip3 genFrames [1..] offsets) $ \(genFrame, i, c) ->
 		blitSurface genFrame (Just$Rect 0 0 w h)
-			allFrames (Just$Rect (w * i) 0 w h)
+			allFrames (Just$Rect (w * i + c) c w h)
 	
 	return$ Animation {
 		surface = allFrames,
 		frames = listArray (0, (frames - 1))
-			[Rect (i * w) 0 w h | i <- [0..(frames - 1)]]
+			[Rect (i * w) 0  w h | i <- [0..(frames - 1)]]
 	}
 	where
 		jimmyTypes = fromInteger.toInteger
