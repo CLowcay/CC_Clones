@@ -329,12 +329,12 @@ doTranslation delay (state@(GameState {..})) = let
 		updateBrick downCells = do
 			if gracePeriod then
 				if downCells > 0 then do
-					currentField <- get
-					put$ mergeField currentField
-						(brickFieldCoords currentHeight currentPos) (tile currentBrick)
-					return (-1, False)
-				else return (currentHeight, True)
-			else return (blockDown downCells currentHeight)
+						currentField <- get
+						put$ mergeField currentField
+							(brickFieldCoords currentHeight currentPos) (tile currentBrick)
+						return (-1, False)
+					else return (currentHeight, True)
+				else return (blockDown downCells currentHeight)
 		validSlide 0 = 0
 		validSlide cells =
 			if isValidPosition
