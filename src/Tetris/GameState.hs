@@ -264,7 +264,7 @@ updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
 		(state', doNextBrick) = doTranslation delay state
 	in
 		if doNextBrick
-			then nextBrick (removeLines state')
+			then nextBrick (detectLines state')
 			else doRotations state'
 
 -- process translations (gravity and sliding), returns True when the
@@ -378,7 +378,7 @@ nextBrick (state@(GameState {..})) = let
 		}
 
 -- find lines and schedule them for removal
-removeLines (state@(GameState {..})) =
+detectLines (state@(GameState {..})) =
 	state {
 		fullLines = filter (isLine) [0..19],
 		lineTimer = resetTimer,
