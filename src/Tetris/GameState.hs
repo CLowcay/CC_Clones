@@ -318,7 +318,8 @@ doTranslation delay (state@(GameState {..})) = let
 			gracePeriod = gracePeriod',
 			currentHeight = if currentHeight' < 0
 				then srsSpawnHeight else currentHeight',
-			currentPos = currentPos'
+			currentPos = currentPos',
+			scoreState = updateScore delay scoreState
 		}, currentHeight' < 0)
 	where
 		dropDelay = getDropDelay (level scoreState) dropKey
@@ -383,12 +384,16 @@ nextBrick (state@(GameState {..})) = let
 		}
 
 -- find lines and schedule them for removal
-detectLines (state@(GameState {..})) =
-	state {
-		fullLines = filter (isLine) [0..19],
-		lineTimer = resetTimer,
-		lineFTA = 19
-	}
+detectLines (state@(GameState {..})) = let
+		fullLines' = filter (isLine) [0..19]
+	in
+		state {
+			fullLines = fullLines',
+			lineTimer = resetTimer,
+			lineFTA = 19,
+			scoreState = if (not$null fullLines')
+				then scoreLines fullLines' scoreState else scoreDrop scoreState
+		}
 	where
 		isLine y = all (\x -> isJust$ field!(x, y)) [0..9]
 
@@ -410,3 +415,37 @@ clearLines field ys = let
 mergeField :: Field -> [(Int, Int)] -> Tile -> Field
 mergeField field coords tile = field // (coords `zip` (repeat$ Just tile))
 
+-- update the counters mainly
+updateScore :: Int -> ScoreState -> ScoreState
+updateScore delay (state@(ScoreState {..})) =
+	state {
+		scoreCounter = updateCounter delay scoreCounter,
+		levelCounter = updateCounter delay levelCounter
+	}
+
+-- update the score when lines are detected
+scoreLines :: [Int] -> ScoreState -> ScoreState
+scoreLines lines (state@(ScoreState {..})) = let
+		-- reward splits
+		points = case length lines of
+			1 -> 2
+			2 -> if contiguous lines then 4 else 6
+			3 -> if contiguous lines then 8 else 12
+			4 -> 16
+			_ -> error ("Detected more than 4 lines, this cannot happen")
+		-- reward high levels and back-to-back combos
+		scoreCounter' = addCounter (points * level + lastLines) scoreCounter
+	in
+		state {
+			scoreCounter = scoreCounter',
+			lastLines = length lines
+		}
+	where
+		contiguous xs = all (uncurry (==)) $xs `zip` [(head xs)..]
+
+-- update the score when a piece is dropped (without any lines)
+scoreDrop :: ScoreState -> ScoreState
+scoreDrop (state@(ScoreState {..})) =
+	state {
+		lastLines = 0
+	}
