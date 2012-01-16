@@ -19,7 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 {-# LANGUAGE RecordWildCards #-}
 
 module Tetris.GameState (
-	GameMode(..), GameState(..),
+	GameMode(..), GameState(..), ScoreState(..),
 	Sfx(..), Channels(..),
 	Tile(..), Brick(..), Rotation(..), SlideAction(..),
 	allTiles, clearField, srsCoords,
@@ -81,11 +81,16 @@ data GameState = GameState {
 	downFTA :: Int,
 	slideFTA :: Int,
 	lineFTA :: Int,
-	score :: Int, scoreCounter :: CounterState,
+	scoreState :: ScoreState,
 	sfxEvents :: [(Sfx, Channels)],  -- sounds to be played after rendering
-	level :: Int, levelCounter :: CounterState,
 	dropKey :: Bool,
 	showPreview :: Bool
+} deriving (Show)
+
+data ScoreState = ScoreState {
+	level :: Int, levelCounter :: CounterState,
+	score :: Int, scoreCounter :: CounterState,
+	lastLines :: Int
 } deriving (Show)
 
 -- How many bricks to show in the preview
@@ -254,7 +259,6 @@ updateGame delay (state@(GameState {mode = GameOverMode})) =
 		done = frames > 0
 	in state {
 		mode = if done then IntroMode else GameOverMode,
-		level = if done then 0 else level state,
 		downTimer = if done then resetTimer else downTimer',
 		sfxEvents = []
 	}
@@ -317,7 +321,7 @@ doTranslation delay (state@(GameState {..})) = let
 			currentPos = currentPos'
 		}, currentHeight' < 0)
 	where
-		dropDelay = getDropDelay level dropKey
+		dropDelay = getDropDelay (level scoreState) dropKey
 		brickFieldCoords height pos = toFieldCoords height pos
 			(srsCoords currentBrick currentRotation)
 		blockDown 0 height = (height, False)

@@ -79,8 +79,8 @@ renderFrame state@(GameState {..}) = do
 		renderAnimation display 0 0 13 (gfx M.! FrameV)
 		renderAnimation display 0 0 533 (gfx M.! FrameH)
 		renderAnimation display 0 273 13 (gfx M.! FrameV)
-		renderCounter (8 + 286) 177 levelCounter
-		renderCounter (54 + 286) 177 scoreCounter
+		renderCounter (8 + 286) 177 (levelCounter scoreState)
+		renderCounter (54 + 286) 177 (scoreCounter scoreState)
 		renderAnimation display 0 286 0 (gfx M.! SidePanel)
 
 	-- render preview
