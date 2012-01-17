@@ -129,12 +129,36 @@ mainLoop time0 state0 = do
 
 	-- Run event handler, which may alter the game state
 	events <- liftIO$pollEvents
-	let (continue, state1) =
-		runState (handleEvents gameEventHandler events) state0
+	let (continue, state1) = if mode state0 == HighScoreMode
+		then let
+			(continue', hstate) = runState
+				(handleEvents highScoreEventHandler events) (highScores state0)
+			in (continue', state0 {highScores = hstate})
+		else runState (handleEvents gameEventHandler events) state0
 	
 	let state2 = updateGame delay state1
 
-	when continue $ mainLoop time1 state2
+	-- Manage high score editing
+	let
+		isEditing0 = isEditing$ highScores state0
+		isEditing1 = isEditing$ highScores state2
+	when (isEditing0 && not isEditing1) $
+		liftIO$endEditing (highScores state2)
+	when (not isEditing0 && isEditing1) $
+		liftIO$startEditing
+
+	-- If high score editing is over, go back to IntroMode
+	let state3 = if isEditing0 && not isEditing1 then
+		(state2 {
+			mode = IntroMode,
+			downTimer = resetTimer,
+			field = clearField,
+			showPreview = False,
+			scoreState = resetScoreState (scoreState state2)
+		})
+		else state2
+
+	when continue $ mainLoop time1 state3
 
 -- Handle game events
 gameEventHandler :: EventHandler GameState

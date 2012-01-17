@@ -108,6 +108,13 @@ renderFrame state@(GameState {..}) = do
 		renderHighScores display 16 260 254 font
 			(Color 0 64 255) highScores
 
+	when (mode == HighScoreMode) $ liftIO$ do
+		blitSurface highScoreMessage Nothing
+			display (Just$ Rect 16 216 0 0)
+		renderHighScores display 16 260 254 font
+			(Color 0 64 255) highScores
+		
+
 	when (mode == PausedMode) $ liftIO$
 		renderAnimation display 0 26 193 (gfx M.! Paused)
 

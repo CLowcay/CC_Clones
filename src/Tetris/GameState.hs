@@ -24,7 +24,7 @@ module Tetris.GameState (
 	Tile(..), Brick(..), Rotation(..), SlideAction(..),
 	allTiles, clearField, srsCoords,
 	srsSpawnHeight, tile, tileS,
-	updateGame, randomBag, nextBrick
+	updateGame, randomBag, nextBrick, resetScoreState
 ) where
 
 import Common.AniTimer
@@ -268,14 +268,13 @@ updateGame delay (state@(GameState {mode = GameOverMode, ..})) =
 		downTimer = if done then resetTimer else downTimer',
 		field = if done then clearField else field,
 		showPreview = if done then False else showPreview,
-		scoreState = if done
-			then ScoreState {
-				level = 0, levelCounter = resetCounter 0 (levelCounter scoreState),
-				score = 0, scoreCounter = resetCounter 0 (scoreCounter scoreState),
-				lastLines = 0, totalLines = 0
-			}
-			else scoreState,
+		scoreState = if done then resetScoreState scoreState else scoreState,
 		sfxEvents = []
+	}
+updateGame delay (state@(GameState {mode = HighScoreMode, ..})) =
+	state {
+		sfxEvents = [],
+		scoreState = updateScore delay scoreState
 	}
 updateGame _ (state@(GameState {mode = PausedMode})) = state
 updateGame _ (state@(GameState {mode = IntroMode})) = state
@@ -384,9 +383,13 @@ nextBrick (state@(GameState {..})) = let
 		emptyBag = Q.length bricks' < previewBricks
 		(newBag, randomState') = runState randomBag randomState
 		gameOver = (notEmpty 20) && (notEmpty 21)
+		gameOverKind = if isNewHighScore (score scoreState) highScores
+			then HighScoreMode else GameOverMode
 	in
 		state {
-			mode = if gameOver then GameOverMode else mode,
+			mode = if gameOver then gameOverKind else mode,
+			highScores = if gameOver && gameOverKind == HighScoreMode
+				then insertHighScore (score scoreState) highScores else highScores,
 			-- Reset the down timer if we go to game over, this is because I'm
 			-- reusing the down timer as the game over timer (naughty)
 			downTimer = if gameOver then setTimer gameOverDelay else downTimer,
@@ -437,6 +440,15 @@ clearLines field ys = let
 mergeField :: Field -> [(Int, Int)] -> Tile -> Field
 mergeField field coords tile = field // (coords `zip` (repeat$ Just tile))
 
+-- reset the score state
+resetScoreState :: ScoreState -> ScoreState
+resetScoreState scoreState =
+	ScoreState {
+		level = 0, levelCounter = resetCounter 0 (levelCounter scoreState),
+		score = 0, scoreCounter = resetCounter 0 (scoreCounter scoreState),
+		lastLines = 0, totalLines = 0
+	}
+
 -- update the counters mainly
 updateScore :: Int -> ScoreState -> ScoreState
 updateScore delay (state@(ScoreState {..})) =
@@ -456,7 +468,8 @@ scoreLines lines (state@(ScoreState {..})) = let
 			4 -> 16
 			_ -> error ("Detected more than 4 lines, this cannot happen")
 		-- reward high levels and back-to-back combos
-		scoreCounter' = addCounter (points * level + lastLines) scoreCounter
+		totalPoints = points * level + lastLines
+		scoreCounter' = addCounter totalPoints scoreCounter
 		totalLines' = totalLines + (length lines)
 		level' = (totalLines' `div` 20) + 1
 		levelCounter' = if level' > level
@@ -468,6 +481,7 @@ scoreLines lines (state@(ScoreState {..})) = let
 			levelCounter = levelCounter',
 			lastLines = length lines,
 			level = level',
+			score = score + totalPoints,
 			totalLines = totalLines'
 		}
 	where
