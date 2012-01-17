@@ -91,9 +91,9 @@ initGameState = do
 		slideFTA = 0,
 		lineFTA = 0,
 		scoreState = ScoreState {
-			level = 1, levelCounter = initCounter (gfx M.! Digits) 2,
+			level = 1, levelCounter = setCounter 1 $ initCounter (gfx M.! Digits) 2,
 			score = 0, scoreCounter = initCounter (gfx M.! Digits) 6,
-			lastLines = 0
+			lastLines = 0, totalLines = 0
 		},
 		sfxEvents = [],
 		dropKey = False,

@@ -90,7 +90,8 @@ data GameState = GameState {
 data ScoreState = ScoreState {
 	level :: Int, levelCounter :: CounterState,
 	score :: Int, scoreCounter :: CounterState,
-	lastLines :: Int
+	lastLines :: Int,
+	totalLines :: Int
 } deriving (Show)
 
 -- How many bricks to show in the preview
@@ -435,10 +436,18 @@ scoreLines lines (state@(ScoreState {..})) = let
 			_ -> error ("Detected more than 4 lines, this cannot happen")
 		-- reward high levels and back-to-back combos
 		scoreCounter' = addCounter (points * level + lastLines) scoreCounter
+		totalLines' = totalLines + (length lines)
+		level' = (totalLines' `div` 20) + 1
+		levelCounter' = if level' > level
+			then addCounter (level' - level) levelCounter
+			else levelCounter
 	in
 		state {
 			scoreCounter = scoreCounter',
-			lastLines = length lines
+			levelCounter = levelCounter',
+			lastLines = length lines,
+			level = level',
+			totalLines = totalLines'
 		}
 	where
 		contiguous xs = all (uncurry (==)) $xs `zip` [(head xs)..]
