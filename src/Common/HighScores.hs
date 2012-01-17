@@ -39,6 +39,7 @@ import System.FilePath
 import System.IO
 
 data HighScoreState = HighScoreState {
+	game :: String,
 	scores :: [(String, Int)],
 	editing :: Maybe Int
 } deriving (Show)
@@ -49,15 +50,15 @@ maxHighScores = 5
 maxNameLength :: Int
 maxNameLength = 12
 
-highScoresFileName :: IO FilePath
-highScoresFileName = do
+highScoresFileName :: String -> IO FilePath
+highScoresFileName game = do
 	userDir <- userDataPath
-	return$ userDir </> "snake.highscores"
+	return$ userDir </> (game ++ ".highscores")
 
 -- load the high scores table
-loadHighScoreTable :: IO HighScoreState
-loadHighScoreTable = do
-	filename <- highScoresFileName
+loadHighScoreTable :: String -> IO HighScoreState
+loadHighScoreTable game = do
+	filename <- highScoresFileName game
 
 	exists <- doesFileExist filename
 	unless exists $
@@ -70,6 +71,7 @@ loadHighScoreTable = do
 				(take maxNameLength (trim name), read (trim$ tail score))
 		) $ filter (not.null) (map trim (lines contents))
 	return HighScoreState {
+		game = game,
 		scores = sortBy (comparing snd) scoresUnsorted,
 		editing = Nothing
 	}
@@ -77,7 +79,7 @@ loadHighScoreTable = do
 -- write the high scores table
 writeHighScoreTable :: HighScoreState -> IO ()
 writeHighScoreTable highScores = do
-	filename <- highScoresFileName
+	filename <- highScoresFileName (game highScores)
 
 	file <- openFile filename WriteMode
 	forM_ (scores highScores) $ \(name, score) ->

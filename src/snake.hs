@@ -75,7 +75,7 @@ initGameState = do
 	liftIO$ do
 		wallStamp <- createRGBSurface [HWSurface] 480 480 32
 			0x000000FF 0x0000FF00 0x00FF0000 0xFF000000 >>= displayFormat
-		highScores <- loadHighScoreTable
+		highScores <- loadHighScoreTable "snake"
 
 		introMessage <- renderUTF8Solid font
 			"Press F2 to start, Esc to quit" (Color 0 64 255)
