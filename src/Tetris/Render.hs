@@ -25,6 +25,7 @@ module Tetris.Render (
 
 import Common.Counters
 import Common.Graphics
+import Common.HighScores
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Reader
@@ -93,6 +94,20 @@ renderFrame state@(GameState {..}) = do
 			renderAnimation display 0
 				(325 + x * tileS) (230 + y * tileS) previewAni
 	
+	-- UI elements
+	when (mode == IntroMode) $ liftIO$ do
+		let
+			w1 = surfaceGetWidth introMessage
+			w2 = surfaceGetWidth introMessage2
+		blitSurface introMessage Nothing
+			display (Just$ Rect ((260 - w1) `div` 2 + 13) 96 0 0)
+		blitSurface introMessage2 Nothing
+			display (Just$ Rect ((260 - w2) `div` 2 + 13) 126 0 0)
+		blitSurface introMessage3 Nothing
+			display (Just$ Rect 16 216 0 0)
+		renderHighScores display 16 260 254 font
+			(Color 0 64 255) highScores
+
 	when (mode == PausedMode) $ liftIO$
 		renderAnimation display 0 26 193 (gfx M.! Paused)
 

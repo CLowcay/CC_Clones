@@ -24,6 +24,7 @@ module Main where
 import Common.AniTimer
 import Common.Counters
 import Common.Events
+import Common.HighScores
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.State hiding (liftIO)
@@ -68,37 +69,54 @@ initSDL = do
 initGameState :: ReaderT Assets IO GameState
 initGameState = do
 	Assets {..} <- ask
-	stdGen <- liftIO$newStdGen
-	let (bricks, randomGen) = runState randomBag stdGen
-	return$ nextBrick$ GameState {
-		mode = IntroMode,
-		randomState = randomGen,
-		gracePeriod = False,
-		brickQueue = Q.empty `Q.enqueueMany` bricks,
-		currentBrick = IBrick,
-		currentRotation = RUp,
-		currentHeight = srsSpawnHeight,
-		currentPos = 0,
-		currentSlide = SlideLeft,
-		slideActive = False,
-		queuedRotations = 0,
-		fullLines = [],
-		field = clearField,
-		downTimer = resetTimer,
-		slideTimer = resetTimer,
-		lineTimer = resetTimer,
-		downFTA = 0,
-		slideFTA = 0,
-		lineFTA = 0,
-		scoreState = ScoreState {
-			level = 0, levelCounter = initCounter (gfx M.! Digits) 2,
-			score = 0, scoreCounter = initCounter (gfx M.! Digits) 6,
-			lastLines = 0, totalLines = 0
-		},
-		sfxEvents = [],
-		dropKey = False,
-		showPreview = False
-	}
+	liftIO$ do
+		stdGen <- newStdGen
+		let (bricks, randomGen) = runState randomBag stdGen
+
+		highScores <- loadHighScoreTable "tetris"
+
+		introMessage <- renderUTF8Solid font
+			"Press F2 to start," (Color 0 64 255)
+		introMessage2 <- renderUTF8Solid font
+			"Esc to quit" (Color 0 64 255)
+		introMessage3 <- renderUTF8Solid font
+			"High scores:" (Color 0 64 255)
+		highScoreMessage <- renderUTF8Solid font
+			"New high score! Enter your name" (Color 0 64 255)
+
+		return$ nextBrick$ GameState {
+			mode = IntroMode,
+			highScores = highScores,
+			introMessage = introMessage, introMessage2 = introMessage2,
+			introMessage3 = introMessage3,
+			highScoreMessage = highScoreMessage,
+			randomState = randomGen,
+			gracePeriod = False,
+			brickQueue = Q.empty `Q.enqueueMany` bricks,
+			currentBrick = IBrick,
+			currentRotation = RUp,
+			currentHeight = srsSpawnHeight,
+			currentPos = 0,
+			currentSlide = SlideLeft,
+			slideActive = False,
+			queuedRotations = 0,
+			fullLines = [],
+			field = clearField,
+			downTimer = resetTimer,
+			slideTimer = resetTimer,
+			lineTimer = resetTimer,
+			downFTA = 0,
+			slideFTA = 0,
+			lineFTA = 0,
+			scoreState = ScoreState {
+				level = 0, levelCounter = initCounter (gfx M.! Digits) 2,
+				score = 0, scoreCounter = initCounter (gfx M.! Digits) 6,
+				lastLines = 0, totalLines = 0
+			},
+			sfxEvents = [],
+			dropKey = False,
+			showPreview = False
+		}
 
 -- The main game loop
 mainLoop :: Int -> GameState -> ReaderT Assets IO ()
