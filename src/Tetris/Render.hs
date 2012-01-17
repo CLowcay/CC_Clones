@@ -97,7 +97,7 @@ renderFrame state@(GameState {..}) = do
 		renderAnimation display 0 123 160 (gfx M.! Paused)
 
 	when (mode == GameOverMode) $ liftIO$
-		renderAnimation display 0 140 208 (gfx M.! GameOverTile)
+		renderAnimation display 0 43 241 (gfx M.! GameOverTile)
 
 	liftIO$ Graphics.UI.SDL.flip display
 	return ()

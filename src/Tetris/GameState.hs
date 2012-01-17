@@ -253,14 +253,23 @@ lineDelay = ((1 :: Double) * 10 ^ 3) / ((fromIntegral tileS) * 4)
 
 -- Determine the next GameState from the current GameState
 updateGame :: Int -> GameState -> GameState
-updateGame delay (state@(GameState {mode = GameOverMode})) =
+updateGame delay (state@(GameState {mode = GameOverMode, ..})) =
 	let
 		(frames, downTimer') =
-			runState (advanceFrames delay gameOverDelay) (downTimer state)
+			runState (advanceFrames delay gameOverDelay) downTimer
 		done = frames > 0
 	in state {
 		mode = if done then IntroMode else GameOverMode,
 		downTimer = if done then resetTimer else downTimer',
+		field = if done then clearField else field,
+		showPreview = False,
+		scoreState = if done
+			then ScoreState {
+				level = 0, levelCounter = resetCounter 0 (levelCounter scoreState),
+				score = 0, scoreCounter = resetCounter 0 (scoreCounter scoreState),
+				lastLines = 0, totalLines = 0
+			}
+			else scoreState,
 		sfxEvents = []
 	}
 updateGame _ (state@(GameState {mode = PausedMode})) = state
@@ -369,8 +378,13 @@ nextBrick (state@(GameState {..})) = let
 		(brick, bricks') = Q.dequeue brickQueue
 		emptyBag = Q.length bricks' < previewBricks
 		(newBag, randomState') = runState randomBag randomState
+		gameOver = (notEmpty 20) && (notEmpty 21)
 	in
 		state {
+			mode = if gameOver then GameOverMode else InGameMode,
+			-- Reset the down timer if we go to game over, this is because I'm
+			-- reusing the down timer as the game over timer (naughty)
+			downTimer = if gameOver then setTimer gameOverDelay else downTimer,
 			randomState = if emptyBag then randomState' else randomState,
 			gracePeriod = False,
 			brickQueue = if emptyBag
@@ -383,6 +397,8 @@ nextBrick (state@(GameState {..})) = let
 			slideTimer = resetTimer,   -- and slides
 			slideFTA = 0
 		}
+	where
+		notEmpty y = not$ all (isNothing) [field!(x, y) | x <- [0..9]]
 
 -- find lines and schedule them for removal
 detectLines (state@(GameState {..})) = let
