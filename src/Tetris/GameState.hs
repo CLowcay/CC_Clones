@@ -244,7 +244,7 @@ tile ZBrick = GreenTile
 getDropDelay :: Int -> Bool -> Double
 getDropDelay level dropkey = ((1 :: Double) * 10^3) / divisor
 	where divisor =
-		(((fromIntegral level) * 8) + 32) * (if dropkey then 10 else 1)
+		(((fromIntegral level) * 12) + 24) * (if dropkey then 10 else 1)
 
 -- How long to display the game over message, in milliseconds
 gameOverDelay :: Double
@@ -463,9 +463,9 @@ scoreLines lines (state@(ScoreState {..})) = let
 		-- reward splits
 		points = case length lines of
 			1 -> 2
-			2 -> if contiguous lines then 4 else 6
-			3 -> if contiguous lines then 8 else 12
-			4 -> 16
+			2 -> if contiguous lines then 8 else 12
+			3 -> if contiguous lines then 16 else 24
+			4 -> 32
 			_ -> error ("Detected more than 4 lines, this cannot happen")
 		-- reward high levels and back-to-back combos
 		totalPoints = points * level + lastLines
