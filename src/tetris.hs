@@ -122,7 +122,7 @@ mainLoop time0 state0 = do
 gameEventHandler :: EventHandler GameState
 gameEventHandler Quit = return False
 gameEventHandler (KeyDown sym) = do
-	state@(GameState {queuedRotations, showPreview}) <- get
+	state@(GameState {mode, queuedRotations, showPreview}) <- get
 	case (symKey sym) of
 		SDLK_UP -> do
 			put$state {queuedRotations = queuedRotations + 1}
@@ -137,6 +137,13 @@ gameEventHandler (KeyDown sym) = do
 			put$state {slideActive = True, currentSlide = SlideRight}
 			return True
 		SDLK_ESCAPE -> return False
+		SDLK_F5 -> do
+			put$state {mode = case mode of
+				PausedMode -> InGameMode
+				InGameMode -> PausedMode
+				x -> x
+			}
+			return True
 		SDLK_p -> do
 			put$state {showPreview = not showPreview}
 			return True

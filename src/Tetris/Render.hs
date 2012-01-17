@@ -94,7 +94,7 @@ renderFrame state@(GameState {..}) = do
 				(325 + x * tileS) (230 + y * tileS) previewAni
 	
 	when (mode == PausedMode) $ liftIO$
-		renderAnimation display 0 123 160 (gfx M.! Paused)
+		renderAnimation display 0 26 193 (gfx M.! Paused)
 
 	when (mode == GameOverMode) $ liftIO$
 		renderAnimation display 0 43 241 (gfx M.! GameOverTile)
