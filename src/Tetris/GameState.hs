@@ -262,7 +262,7 @@ updateGame delay (state@(GameState {mode = GameOverMode, ..})) =
 		mode = if done then IntroMode else GameOverMode,
 		downTimer = if done then resetTimer else downTimer',
 		field = if done then clearField else field,
-		showPreview = False,
+		showPreview = if done then False else showPreview,
 		scoreState = if done
 			then ScoreState {
 				level = 0, levelCounter = resetCounter 0 (levelCounter scoreState),
@@ -381,7 +381,7 @@ nextBrick (state@(GameState {..})) = let
 		gameOver = (notEmpty 20) && (notEmpty 21)
 	in
 		state {
-			mode = if gameOver then GameOverMode else InGameMode,
+			mode = if gameOver then GameOverMode else mode,
 			-- Reset the down timer if we go to game over, this is because I'm
 			-- reusing the down timer as the game over timer (naughty)
 			downTimer = if gameOver then setTimer gameOverDelay else downTimer,

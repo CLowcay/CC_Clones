@@ -71,7 +71,7 @@ initGameState = do
 	stdGen <- liftIO$newStdGen
 	let (bricks, randomGen) = runState randomBag stdGen
 	return$ nextBrick$ GameState {
-		mode = InGameMode,
+		mode = IntroMode,
 		randomState = randomGen,
 		gracePeriod = False,
 		brickQueue = Q.empty `Q.enqueueMany` bricks,
@@ -91,13 +91,13 @@ initGameState = do
 		slideFTA = 0,
 		lineFTA = 0,
 		scoreState = ScoreState {
-			level = 1, levelCounter = setCounter 1 $ initCounter (gfx M.! Digits) 2,
+			level = 0, levelCounter = initCounter (gfx M.! Digits) 2,
 			score = 0, scoreCounter = initCounter (gfx M.! Digits) 6,
 			lastLines = 0, totalLines = 0
 		},
 		sfxEvents = [],
 		dropKey = False,
-		showPreview = True
+		showPreview = False
 	}
 
 -- The main game loop
@@ -122,7 +122,7 @@ mainLoop time0 state0 = do
 gameEventHandler :: EventHandler GameState
 gameEventHandler Quit = return False
 gameEventHandler (KeyDown sym) = do
-	state@(GameState {mode, queuedRotations, showPreview}) <- get
+	state@(GameState {mode, scoreState, queuedRotations, showPreview}) <- get
 	case (symKey sym) of
 		SDLK_UP -> do
 			put$state {queuedRotations = queuedRotations + 1}
@@ -137,6 +137,16 @@ gameEventHandler (KeyDown sym) = do
 			put$state {slideActive = True, currentSlide = SlideRight}
 			return True
 		SDLK_ESCAPE -> return False
+		SDLK_F2 -> do
+			put$state {
+				mode = if mode == IntroMode then InGameMode else mode,
+				field = clearField,
+				showPreview = if mode == IntroMode then True else showPreview,
+				scoreState = if mode /= IntroMode then scoreState else scoreState {
+					level = 1, levelCounter = resetCounter 1 (levelCounter scoreState)
+				}
+			}
+			return True
 		SDLK_F5 -> do
 			put$state {mode = case mode of
 				PausedMode -> InGameMode
