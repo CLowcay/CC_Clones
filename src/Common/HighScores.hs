@@ -72,7 +72,7 @@ loadHighScoreTable game = do
 		) $ filter (not.null) (map trim (lines contents))
 	return HighScoreState {
 		game = game,
-		scores = sortBy (comparing snd) scoresUnsorted,
+		scores = reverse$ sortBy (comparing snd) scoresUnsorted,
 		editing = Nothing
 	}
 
