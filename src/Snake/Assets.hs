@@ -20,7 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 {-# LANGUAGE RecordWildCards #-}
 
 module Snake.Assets (
-	Assets(..),
+	Assets(..), Message(..),
 	loadAssets,
 	Snake.Assets.loadLevel
 ) where
@@ -47,8 +47,12 @@ import Snake.GameState
 data Assets = Assets {
 	gfx :: M.Map Tile Animation,
 	sfx :: M.Map Sfx Chunk,
-	font :: Font
+	font :: Font,
+	messages :: M.Map Message Surface
 }
+
+data Message = MessageIntro1 | MessageIntro2 | MessageHighScores
+	deriving (Enum, Bounded, Eq, Ord, Show)
 
 -- Load all assets
 loadAssets :: IO Assets
@@ -56,10 +60,21 @@ loadAssets = do
 	gfx <- loadSprites
 	sfx <- loadSounds
 	font <- loadFont
+	messageData <-
+		mapM (\(m, s) -> do
+			surface <- renderUTF8Solid font s (Color 0 64 255)
+			return (m, surface)
+		) [
+			(MessageIntro1, "Press F2 to start, Esc to quit"),
+			(MessageIntro2, "High scores:"),
+			(MessageHighScores, "New high score! Enter your name")
+		]
+
 	return Assets {
 		gfx = gfx,
 		sfx = sfx,
-		font = font
+		font = font,
+		messages = M.fromList messageData
 	}
 
 loadSounds :: IO (M.Map Sfx Chunk)

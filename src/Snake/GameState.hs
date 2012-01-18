@@ -37,7 +37,6 @@ import Data.Maybe
 import Debug.Trace
 import Graphics.UI.SDL
 import Graphics.UI.SDL.Mixer
-import Graphics.UI.SDL.TTF
 import qualified Common.Queue as Q
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -60,8 +59,6 @@ data GameState = GameState {
 	fastMode :: Bool,
 	highScores :: HighScoreState,
 	wallStamp :: Surface,
-	introMessage :: Surface, introMessage2 :: Surface,
-	highScoreMessage :: Surface,
 	-- enqueue on the back, dequeue from the front
 	nextDirections :: Q.Queue Direction,
 	currentDirection :: Direction,

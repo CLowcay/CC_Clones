@@ -77,19 +77,10 @@ initGameState = do
 			0x000000FF 0x0000FF00 0x00FF0000 0xFF000000 >>= displayFormat
 		highScores <- loadHighScoreTable "snake"
 
-		introMessage <- renderUTF8Solid font
-			"Press F2 to start, Esc to quit" (Color 0 64 255)
-		introMessage2 <- renderUTF8Solid font
-			"High scores:" (Color 0 64 255)
-		highScoreMessage <- renderUTF8Solid font
-			"New high score! Enter your name" (Color 0 64 255)
-
 		return GameState {
 			mode = IntroMode,
 			highScores = highScores,
 			wallStamp = wallStamp,
-			introMessage = introMessage, introMessage2 = introMessage2,
-			highScoreMessage = highScoreMessage,
 			nextDirections = Q.empty, currentDirection = DUp,
 			aniTimer = resetTimer,
 			fastMode = False,

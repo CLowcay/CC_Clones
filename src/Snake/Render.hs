@@ -73,16 +73,16 @@ renderFrame state@(GameState {..}) = do
 	-- UI elements
 	when (mode == IntroMode) $ liftIO$ do
 		let
-			w1 = surfaceGetWidth introMessage
-		blitSurface introMessage Nothing
+			w1 = surfaceGetWidth (messages M.! MessageIntro1)
+		blitSurface (messages M.! MessageIntro1) Nothing
 			display (Just$ Rect ((480 - w1) `div` 2) 128 0 0)
-		blitSurface introMessage2 Nothing
+		blitSurface (messages M.! MessageIntro2) Nothing
 			display (Just$ Rect 32 212 0 0)
 		renderHighScores display 32 260 416 font
 			(Color 0 64 255) highScores
 	
 	when (mode == HighScoreMode) $ liftIO$ do
-		blitSurface highScoreMessage Nothing
+		blitSurface (messages M.! MessageHighScores) Nothing
 			display (Just$ Rect 32 196 0 0)
 		renderHighScores display 32 260 416 font
 			(Color 0 64 255) highScores
