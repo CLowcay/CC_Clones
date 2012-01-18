@@ -20,7 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 {-# LANGUAGE RecordWildCards #-}
 
 module Tetris.Assets (
-	Assets(..), loadAssets
+	Assets(..), Message(..), loadAssets
 ) where
 
 import Common.Assets
@@ -37,8 +37,13 @@ import Tetris.GameState
 data Assets = Assets {
 	gfx :: M.Map Tile Animation,
 	sfx :: M.Map Sfx Chunk,
-	font :: Font
+	font :: Font,
+	messages :: M.Map Message Surface
 }
+
+data Message = MessageIntro1 | MessageIntro2 | MessageIntro3 |
+	MessageHighScores1 | MessageHighScores2
+	deriving (Enum, Bounded, Eq, Ord, Show)
 
 -- Load all assets
 loadAssets :: IO Assets
@@ -46,10 +51,22 @@ loadAssets = do
 	gfx <- loadSprites
 	sfx <- loadSounds
 	font <- loadFont
+	messageData <-
+		mapM (\(m, s) -> do
+			surface <- renderUTF8Solid font s (Color 0xCC 0xCC 0xCC)
+			return (m, surface)
+		) [
+			(MessageIntro1, "Press F2 to start,"),
+			(MessageIntro2, "ESC to quit"),
+			(MessageIntro3, "High scores:"),
+			(MessageHighScores1, "New high score!"),
+			(MessageHighScores2, "Enter name:")
+		]
 	return Assets {
 		gfx = gfx,
 		sfx = sfx,
-		font = font
+		font = font,
+		messages = M.fromList messageData 
 	}
 
 loadSounds :: IO (M.Map Sfx Chunk)

@@ -75,21 +75,9 @@ initGameState = do
 
 		highScores <- loadHighScoreTable "tetris"
 
-		introMessage <- renderUTF8Solid font
-			"Press F2 to start," (Color 0 64 255)
-		introMessage2 <- renderUTF8Solid font
-			"Esc to quit" (Color 0 64 255)
-		introMessage3 <- renderUTF8Solid font
-			"High scores:" (Color 0 64 255)
-		highScoreMessage <- renderUTF8Solid font
-			"New high score! Enter your name" (Color 0 64 255)
-
 		return$ nextBrick$ GameState {
 			mode = IntroMode,
 			highScores = highScores,
-			introMessage = introMessage, introMessage2 = introMessage2,
-			introMessage3 = introMessage3,
-			highScoreMessage = highScoreMessage,
 			randomState = randomGen,
 			gracePeriod = False,
 			brickQueue = Q.empty `Q.enqueueMany` bricks,

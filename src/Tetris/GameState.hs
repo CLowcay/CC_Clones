@@ -36,7 +36,6 @@ import Data.Array
 import Data.List
 import Data.Maybe
 import Debug.Trace
-import Graphics.UI.SDL
 import qualified Common.Queue as Q
 import System.Random
 
@@ -65,8 +64,6 @@ type Field = Array (Int, Int) (Maybe Tile)
 data GameState = GameState {
 	mode :: GameMode,
 	highScores :: HighScoreState,
-	introMessage :: Surface, introMessage2 :: Surface, introMessage3 :: Surface,
-	highScoreMessage :: Surface ,
 	randomState :: StdGen,
 	brickQueue :: Q.Queue Brick,
 	gracePeriod :: Bool,
