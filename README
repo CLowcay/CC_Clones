@@ -23,12 +23,27 @@ modern operating systems.  When they do run, the graphics are uninspiring, and
 the animation jerky.  In reimplementing them, my hope is to make these classics
 playable again, so that they may continue to waste time for years to come.
 
+Feel free to package, mod, and/or rebrand any or all of these games for your
+own purposes.  You don't need my permission; but keep in mind the GPL license:
+_all derivative works must be GPL'd_.
+
 What's included
 ===============
  - snake: Eat the apples to earn points. The snake grows longer as it eats.
 	 When you have eaten all the green apples, the exit opens so you can advance
 	 to the next level.  Don't crash into the walls or your own tail; there are no
 	 extra lives in my implementation of one of the oldest video games.
+
+ - tetris: Fit the falling tetronimoes together by shifting and twisting them
+	 into place.  When you form a complete line across the play field, the line
+	 vanishes and you get points.  More points are awarded when you clear
+	 multiple lines at once, or in quick succession.  When the play field fills
+	 to the top with tetronimoes, the game is over.
+
+	 My tetris uses the modern SRS rotation system, which supports all kinds of
+	 fancy moves (http://tetris.wikia.com/wiki/SRS).  I don't award bonus points
+	 for T-spins though, and the lock delay does not reset on shifts or spins.
+	 Gravity is naïve, so you can't use cascading moves.
 
 Building
 ========
@@ -41,9 +56,9 @@ language around.  C/C++ are not high level, Factor lacks maturity, and OCaml is
 simply not as elegant as Haskell.
 
 To build the clones, you will need to install GHC and some Haskell libraries.
-Namely mtl, SDL, SDL_Mixer, and SDL_TTF.  I recommend you install the Haskell
-Platform (http://hackage.haskell.org/platform//), which includes the cabal tool.
-Use the cabal command to install the SDL packages.
+Namely mtl, SDL, SDL_Mixer, SDL_gfx, and SDL_TTF.  I recommend you install the
+Haskell Platform (http://hackage.haskell.org/platform//), which includes the
+cabal tool.  Use the cabal command to install the SDL packages.
 
 Under Windows, a certain amount of hacking is required to install the SDL
 libraries.  This should get you started:
