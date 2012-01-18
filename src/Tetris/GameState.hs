@@ -336,6 +336,7 @@ doTranslation delay (state@(GameState {..})) = let
 		dropDelay = getDropDelay (level scoreState) dropKey
 		brickFieldCoords height pos = toFieldCoords height pos
 			(srsCoords currentBrick currentRotation)
+		-- returns (height, grace)
 		blockDown 0 height = (height, False)
 		blockDown downCells height =
 			if isValidPosition (brickFieldCoords (height - 1) currentPos) field
@@ -343,14 +344,16 @@ doTranslation delay (state@(GameState {..})) = let
 				else (height, True)
 		updateBrick :: Int -> State Field (Int, Bool)
 		updateBrick downCells = do
-			if gracePeriod then
-				if downCells > 0 then do
+			let (height', grace') = blockDown downCells currentHeight
+			if (height' /= currentHeight)
+				then return (height', grace')
+				else if grace' && gracePeriod
+					then do
 						currentField <- get
 						put$ mergeField currentField
 							(brickFieldCoords currentHeight currentPos) (tile currentBrick)
 						return (-1, False)
-					else return (currentHeight, True)
-				else return (blockDown downCells currentHeight)
+					else return (currentHeight, gracePeriod || grace')
 		validSlide 0 = 0
 		validSlide cells =
 			if isValidPosition
