@@ -187,6 +187,15 @@ gameEventHandler (KeyDown sym) = do
 		SDLK_p -> do
 			put$state {showPreview = not showPreview}
 			return True
+		SDLK_KP_PLUS -> do
+			put$state {scoreState = scoreState {
+				level = (level scoreState) + 1,
+				levelCounter = addCounter 1 (levelCounter scoreState),
+				totalLines = (totalLines scoreState) + 20,
+				score = (score scoreState) + 40,
+				scoreCounter = addCounter 40 (scoreCounter scoreState)
+			}}
+			return True
 		_ -> return True
 gameEventHandler (KeyUp sym) = do
 	state <- get
