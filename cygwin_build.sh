@@ -26,7 +26,7 @@ for exe in snake tetris; do
 	ghc -cpp -DASSET_PREFIX="\"./assets/\"" $debug $cheating \
 		-ibuild:src -outputdir build \
 		-L"C:\SDL-1.2.14\lib" -lSDL_ttf -lSDL_mixer -optl-mwindows \
-		-optl"build/${exe}res.o" \
+		-optl"build/${exe}res.o" -O2 \
 		--make src/$exe.hs -o build/$exe
 done
 

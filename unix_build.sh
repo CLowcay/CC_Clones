@@ -22,7 +22,7 @@ cp src_assets/highscores build/assets
 if [ ! -d build ]; then mkdir build; fi
 for exe in snake tetris; do
 	ghc -cpp -DASSET_PREFIX="\"./assets/\"" $debug $cheating \
-		-ibuild:src -outputdir build \
+		-ibuild:src -outputdir build -O2 \
 		--make src/$exe.hs -o build/$exe
 done
 
