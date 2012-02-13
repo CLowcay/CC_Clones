@@ -25,8 +25,8 @@ LANGUAGE LANG_ENGLISH,SUBLANG_ENGLISH_NZ
 1 ICON "Snake.ico"
 
 VS_VERSION_INFO VERSIONINFO
-FILEVERSION 1,0,0,0
-PRODUCTVERSION 0,1,0,0
+FILEVERSION 1,1,0,0
+PRODUCTVERSION 0,2,0,0
 FILEFLAGSMASK 0x3F
 FILEFLAGS 0x0
 FILEOS VOS__WINDOWS32
@@ -40,7 +40,7 @@ BEGIN
       VALUE "Comments", "An implementation of one of the oldest video games, snake\0"
       VALUE "FileDescription", "CC Snake\0"
       VALUE "FileVersion", "1.0\0"
-      VALUE "LegalCopyright", "© Callum Lowcay 2011\0"
+      VALUE "LegalCopyright", "© Callum Lowcay 2011-2012\0"
       VALUE "OriginalFilename", "snake.exe\0"
       VALUE "ProductName", "CC_Clones\0"
       VALUE "ProductVersion", "0.1\0"
