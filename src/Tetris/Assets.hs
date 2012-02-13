@@ -29,7 +29,6 @@ import Control.Monad
 import Data.Array
 import Graphics.UI.SDL
 import Graphics.UI.SDL.Mixer
-import Graphics.UI.SDL.Rotozoomer
 import Graphics.UI.SDL.TTF
 import qualified Data.Map as M
 import Tetris.GameState
@@ -85,21 +84,22 @@ loadSprites = do
 	frameV <- loadBMP$ getAssetPath "gfx/FrameV.bmp"
 	sidePanel <- loadBMP$ getAssetPath "gfx/TetrisPanel.bmp"
 	
-	redTile <- loadBMP$ getAssetPath "gfx/RedTile.bmp"
-	pinkTile <- loadBMP$ getAssetPath "gfx/PinkTile.bmp"
-	yellowTile <- loadBMP$ getAssetPath "gfx/YellowTile.bmp"
-	orangeTile <- loadBMP$ getAssetPath "gfx/OrangeTile.bmp"
-	blueTile <- loadBMP$ getAssetPath "gfx/BlueTile.bmp"
-	greyTile <- loadBMP$ getAssetPath "gfx/GreyTile.bmp"
-	greenTile <- loadBMP$ getAssetPath "gfx/GreenTile.bmp"
+	redTile <- loadBMP$ getAssetPath "gfx/RedShrink.bmp"
+	pinkTile <- loadBMP$ getAssetPath "gfx/PinkShrink.bmp"
+	yellowTile <- loadBMP$ getAssetPath "gfx/YellowShrink.bmp"
+	orangeTile <- loadBMP$ getAssetPath "gfx/OrangeShrink.bmp"
+	blueTile <- loadBMP$ getAssetPath "gfx/BlueShrink.bmp"
+	greyTile <- loadBMP$ getAssetPath "gfx/GreyShrink.bmp"
+	greenTile <- loadBMP$ getAssetPath "gfx/GreenShrink.bmp"
 
-	redTileAni <-  makeShrinkingAnimation redTile tileS tileS 20
-	pinkTileAni <- makeShrinkingAnimation pinkTile tileS tileS 20
-	yellowTileAni <- makeShrinkingAnimation yellowTile tileS tileS 20
-	orangeTileAni <- makeShrinkingAnimation orangeTile tileS tileS 20
-	blueTileAni <- makeShrinkingAnimation blueTile tileS tileS 20
-	greyTileAni <- makeShrinkingAnimation greyTile tileS tileS 20
-	greenTileAni <- makeShrinkingAnimation greenTile tileS tileS 20
+	let
+		redTileAni =  makeAnimationH redTile tileS tileS 20
+		pinkTileAni = makeAnimationH pinkTile tileS tileS 20
+		yellowTileAni = makeAnimationH yellowTile tileS tileS 20
+		orangeTileAni = makeAnimationH orangeTile tileS tileS 20
+		blueTileAni = makeAnimationH blueTile tileS tileS 20
+		greyTileAni = makeAnimationH greyTile tileS tileS 20
+		greenTileAni = makeAnimationH greenTile tileS tileS 20
 
 	mapM_ (\surface ->
 			setColorKey surface [SrcColorKey] (Pixel 0x00FF00FF))
@@ -134,28 +134,11 @@ makeAnimation surface w h x y =
 		frames = listArray (0, 0) [Rect (x * w) (y * h) w h]
 	}
 
-makeShrinkingAnimation :: Surface -> Int -> Int -> Int -> (IO Animation)
-makeShrinkingAnimation surface w h frames = do
-	let factors = map
-		(\x -> 1.0 - ((jimmyTypes x)/(jimmyTypes (frames - 1))))
-		[1..(frames - 1)]
-	let offsets = 0:map
-		(\factor -> round$ ((jimmyTypes w) *  (1.0 - factor)) / 2.0) factors
-	genFrames <- mapM (\factor -> zoom surface factor factor True) factors
-
-	allFrames <- createRGBSurface [HWSurface] (frames * w) h 32
-		0x000000FF 0x0000FF00 0x00FF0000 0xFF000000 >>= displayFormat
-
-	blitSurface surface (Just$Rect 0 0 w h) allFrames (Just$Rect 0 0 w h)
-	forM_ (zip3 genFrames [1..] offsets) $ \(genFrame, i, c) ->
-		blitSurface genFrame (Just$Rect 0 0 w h)
-			allFrames (Just$Rect (w * i + c) c w h)
-	
-	return$ Animation {
-		surface = allFrames,
+makeAnimationH :: Surface -> Int -> Int -> Int -> Animation
+makeAnimationH surface w h frames =
+	Animation {
+		surface = surface,
 		frames = listArray (0, (frames - 1))
-			[Rect (i * w) 0  w h | i <- [0..(frames - 1)]]
+			[Rect (i * w) 0 w h | i <- [0..(frames - 1)]]
 	}
-	where
-		jimmyTypes = fromInteger.toInteger
 
