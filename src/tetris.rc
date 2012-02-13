@@ -1,0 +1,54 @@
+/*
+CC_Clones - Classic games reimplemented
+© Callum Lowcay 2006-2011
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+#include <windows.h>
+#include <commctrl.h>
+#include <richedit.h>
+
+LANGUAGE LANG_ENGLISH,SUBLANG_ENGLISH_NZ
+
+1 ICON "Tetris.ico"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION 1,0,0,0
+PRODUCTVERSION 0,2,0,0
+FILEFLAGSMASK 0x3F
+FILEFLAGS 0x0
+FILEOS VOS__WINDOWS32
+FILETYPE VFT_APP
+FILESUBTYPE VFT2_UNKNOWN
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "140904E4"
+    BEGIN
+      VALUE "Comments", "Yet another tetris\0"
+      VALUE "FileDescription", "CC Tetris\0"
+      VALUE "FileVersion", "1.0\0"
+      VALUE "LegalCopyright", "© Callum Lowcay 2011-2012\0"
+      VALUE "OriginalFilename", "tetris.exe\0"
+      VALUE "ProductName", "CC_Clones\0"
+      VALUE "ProductVersion", "0.2\0"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x1409, 0x4E4
+  END
+END
+
