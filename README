@@ -56,9 +56,9 @@ language around.  C/C++ are not high level, Factor lacks maturity, and OCaml is
 simply not as elegant as Haskell.
 
 To build the clones, you will need to install GHC and some Haskell libraries.
-Namely mtl, SDL, SDL_Mixer, SDL_gfx, and SDL_TTF.  I recommend you install the
-Haskell Platform (http://hackage.haskell.org/platform//), which includes the
-cabal tool.  Use the cabal command to install the SDL packages.
+Namely mtl, SDL, SDL_Mixer, and SDL_TTF.  I recommend you install the Haskell
+Platform (http://hackage.haskell.org/platform//), which includes the cabal
+tool.  Use the cabal command to install the SDL packages.
 
 Under Windows, a certain amount of hacking is required to install the SDL
 libraries.  This should get you started:
