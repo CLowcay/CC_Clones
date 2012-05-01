@@ -330,7 +330,8 @@ doTranslation delay (state@(GameState {..})) = let
 			currentHeight = if currentHeight' < 0
 				then srsSpawnHeight else currentHeight',
 			currentPos = currentPos',
-			scoreState = updateScore delay scoreState
+			scoreState = updateScore delay scoreState,
+			sfxEvents = []
 		}, currentHeight' < 0)
 	where
 		dropDelay = getDropDelay (level scoreState) dropKey
@@ -374,7 +375,9 @@ doRotations (state@(GameState {..})) = let
 			queuedRotations = 0,
 			currentRotation = currentRotation',
 			currentHeight = currentHeight',
-			currentPos = currentPos'
+			currentPos = currentPos',
+			sfxEvents =
+				(replicate queuedRotations (SfxTurn, SfxChannel)) ++ sfxEvents
 		}
 
 -- work out the next brick
@@ -414,6 +417,8 @@ detectLines (state@(GameState {..})) = let
 	in
 		state {
 			fullLines = fullLines',
+			sfxEvents = sfxEvents ++
+				(if null fullLines' then [] else [(SfxLine, SfxChannel)]),
 			lineTimer = resetTimer,
 			lineFTA = 19,
 			scoreState = if (not$null fullLines')
