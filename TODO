@@ -1,6 +1,10 @@
+Common:
+ - 'catch up' behaviour for counters
+
 Tetris:
  - Field bonus animation (bar with lettering)
  - Level skip bonus
+ - Tidy up design
 
 Next:
  - Spring weekend clone: Beach Day?
