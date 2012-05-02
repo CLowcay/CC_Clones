@@ -40,7 +40,8 @@ import qualified Common.Queue as Q
 import System.Random
 
 data GameMode =
-	IntroMode | InGameMode | PausedMode | GameOverMode | HighScoreMode
+	IntroMode | InGameMode | PausedMode | GameOverMode |
+	HighScoreMode | AllClearBonusMode
 	deriving (Enum, Eq, Show)
 
 data Tile = Digits | Paused | GameOverTile |
@@ -273,6 +274,16 @@ updateGame delay (state@(GameState {mode = HighScoreMode, ..})) =
 		sfxEvents = [],
 		scoreState = updateScore delay scoreState
 	}
+updateGame delay (state@(GameState {mode = AllClearBonusMode, ..})) =
+	let
+		(downFrames, downTimer') =
+			runState (advanceFrames delay (getDropDelay 1 True)) downTimer
+		downFTA' = downFTA - downFrames
+	in state {
+		mode = if downFTA' <= 0 then InGameMode else AllClearBonusMode,
+		downFTA = downFTA' `max` 0,
+		downTimer = downTimer'
+	}
 updateGame _ (state@(GameState {mode = PausedMode})) = state
 updateGame _ (state@(GameState {mode = IntroMode})) = state
 updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
@@ -385,17 +396,23 @@ nextBrick (state@(GameState {..})) = let
 		(brick, bricks') = Q.dequeue brickQueue
 		emptyBag = Q.length bricks' < previewBricks
 		(newBag, randomState') = runState randomBag randomState
-		gameOver = (notEmpty 20) && (notEmpty 21)
+		gameOver = (not$isEmpty 20) && (not$isEmpty 21)
 		gameOverKind = if isNewHighScore (score scoreState) highScores
 			then HighScoreMode else GameOverMode
+		allClearBonus = allClear && ((score scoreState) > 0)
 	in
 		state {
-			mode = if gameOver then gameOverKind else mode,
+			mode = if gameOver then gameOverKind
+				else if allClearBonus then AllClearBonusMode
+				else mode,
 			highScores = if gameOver && gameOverKind == HighScoreMode
 				then insertHighScore (score scoreState) highScores else highScores,
 			-- Reset the down timer if we go to game over, this is because I'm
 			-- reusing the down timer as the game over timer (naughty)
-			downTimer = if gameOver then setTimer gameOverDelay else downTimer,
+			downTimer = if gameOver then setTimer gameOverDelay else resetTimer,
+			downFTA = if allClearBonus then 18 * tileS else downFTA,
+			scoreState = if allClearBonus
+				then scoreAllClear scoreState else scoreState,
 			randomState = if emptyBag then randomState' else randomState,
 			gracePeriod = False,
 			brickQueue = if emptyBag
@@ -409,7 +426,8 @@ nextBrick (state@(GameState {..})) = let
 			slideFTA = 0
 		}
 	where
-		notEmpty y = not$ all (isNothing) [field!(x, y) | x <- [0..9]]
+		isEmpty y =  all (isNothing) [field!(x, y) | x <- [0..9]]
+		allClear = and [isEmpty y| y <- [0..19]]
 
 -- find lines and schedule them for removal
 detectLines (state@(GameState {..})) = let
@@ -498,3 +516,15 @@ scoreDrop (state@(ScoreState {..})) =
 	state {
 		lastLines = 0
 	}
+
+-- update the score when the field is cleared
+scoreAllClear :: ScoreState -> ScoreState
+scoreAllClear (state@(ScoreState {..})) = let
+		totalPoints = level * 18 * 20
+	in
+		state {
+			score = score + totalPoints,
+			scoreCounter = addCounter totalPoints scoreCounter,
+			lastLines = 0
+		}
+

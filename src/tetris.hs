@@ -168,14 +168,16 @@ gameEventHandler (KeyDown sym) = do
 			return True
 		SDLK_ESCAPE -> return False
 		SDLK_F2 -> do
-			put$state {
-				mode = if mode == IntroMode then InGameMode else mode,
-				field = clearField,
-				showPreview = if mode == IntroMode then True else showPreview,
-				scoreState = if mode /= IntroMode then scoreState else scoreState {
-					level = 1, levelCounter = resetCounter 1 (levelCounter scoreState)
+			when (mode == IntroMode) $
+				put$state {
+					mode = InGameMode,
+					field = clearField,
+					showPreview = True,
+					scoreState = scoreState {
+						level = 1,
+						levelCounter = resetCounter 1 (levelCounter scoreState)
+					}
 				}
-			}
 			return True
 		SDLK_F5 -> do
 			put$state {mode = case mode of
