@@ -103,7 +103,8 @@ initGameState = do
 			},
 			sfxEvents = [],
 			dropKey = False,
-			showPreview = False
+			showPreview = False,
+			allClearCheat = False
 		}
 
 -- The main game loop
@@ -198,6 +199,11 @@ gameEventHandler (KeyDown sym) = do
 				scoreCounter = addCounter 40 (scoreCounter scoreState)
 			}}
 			return True
+#ifdef CHEATING
+		SDLK_c -> do
+			put$state {allClearCheat = True}
+			return True
+#endif
 		_ -> return True
 gameEventHandler (KeyUp sym) = do
 	state <- get

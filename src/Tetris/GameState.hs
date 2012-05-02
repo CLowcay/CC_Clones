@@ -87,7 +87,8 @@ data GameState = GameState {
 	scoreState :: ScoreState,
 	sfxEvents :: [(Sfx, Channels)],  -- sounds to be played after rendering
 	dropKey :: Bool,
-	showPreview :: Bool
+	showPreview :: Bool,
+	allClearCheat :: Bool -- True if the allClear cheat is in use
 } deriving (Show)
 
 data ScoreState = ScoreState {
@@ -335,14 +336,18 @@ doTranslation delay (state@(GameState {..})) = let
 			slideTimer = if slideActive || slideFTA' > 0
 				then slideTimer' else resetTimer,
 			lineTimer = if lineFTA' < 0 then resetTimer else lineTimer',
-			field = if lineFTA' < 0 then clearLines field' fullLines else field',
+			field = if lineFTA' < 0
+				then if allClearCheat
+					then clearField else clearLines field' fullLines
+				else field',
 			fullLines = if lineFTA' < 0 then [] else fullLines,
 			gracePeriod = gracePeriod',
 			currentHeight = if currentHeight' < 0
 				then srsSpawnHeight else currentHeight',
 			currentPos = currentPos',
 			scoreState = updateScore delay scoreState,
-			sfxEvents = []
+			sfxEvents = [],
+			allClearCheat = False
 		}, currentHeight' < 0)
 	where
 		dropDelay = getDropDelay (level scoreState) dropKey
@@ -410,7 +415,7 @@ nextBrick (state@(GameState {..})) = let
 			-- Reset the down timer if we go to game over, this is because I'm
 			-- reusing the down timer as the game over timer (naughty)
 			downTimer = if gameOver then setTimer gameOverDelay else resetTimer,
-			downFTA = if allClearBonus then 18 * tileS else downFTA,
+			downFTA = if allClearBonus then 15 * tileS else downFTA,
 			scoreState = if allClearBonus
 				then scoreAllClear scoreState else scoreState,
 			randomState = if emptyBag then randomState' else randomState,
