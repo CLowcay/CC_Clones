@@ -56,12 +56,16 @@ initCounter digits nDigits = CounterState {
 frameDelay :: Double
 frameDelay = ((1 :: Double) * 10^3) / (4 * 18)
 
+smartDelay :: Int -> Int -> Double
+smartDelay display target = frameDelay `min`
+	(((2 :: Double) * 10^3) / (fromIntegral (target - display) * 18))
+
 -- Update a counter state based on a time delta
 updateCounter :: Int -> CounterState -> CounterState
 updateCounter delay (state@CounterState {..}) =
 	let
 		(frames, aniTimer') =
-			runState (advanceFrames delay frameDelay) aniTimer
+			runState (advanceFrames delay (smartDelay display target)) aniTimer
 		offset' = framesToAlignment - frames
 		framesToAlignment' = if offset' < 0
 			then offset' `mod` 18 else offset'
