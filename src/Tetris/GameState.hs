@@ -77,6 +77,7 @@ data GameState = GameState {
 	queuedRotations :: Int,  -- number of rotations to perform
 	fullLines :: [Int], -- completed lines
 	field :: Field,
+	initClearField :: Bool, -- True if this is an initial (clear) field
 	downTimer :: AniTimer,
 	slideTimer :: AniTimer,
 	lineTimer :: AniTimer,
@@ -266,6 +267,7 @@ updateGame delay (state@(GameState {mode = GameOverMode, ..})) =
 		mode = if done then IntroMode else GameOverMode,
 		downTimer = if done then resetTimer else downTimer',
 		field = if done then clearField else field,
+		initClearField = done,
 		showPreview = if done then False else showPreview,
 		scoreState = if done then resetScoreState scoreState else scoreState,
 		sfxEvents = []
@@ -278,11 +280,13 @@ updateGame delay (state@(GameState {mode = HighScoreMode, ..})) =
 updateGame delay (state@(GameState {mode = AllClearBonusMode, ..})) =
 	let
 		(downFrames, downTimer') =
-			runState (advanceFrames delay (getDropDelay 1 True)) downTimer
+			runState (advanceFrames delay (getDropDelay 5 False)) downTimer
 		downFTA' = downFTA - downFrames
 	in state {
 		mode = if downFTA' <= 0 then InGameMode else AllClearBonusMode,
-		downFTA = downFTA' `max` 0,
+		initClearField = downFTA' <= 0,
+		scoreState = updateScore delay scoreState,
+		downFTA = downFTA',
 		downTimer = downTimer'
 	}
 updateGame _ (state@(GameState {mode = PausedMode})) = state
@@ -292,7 +296,7 @@ updateGame delay (state@(GameState {mode = InGameMode, ..})) = let
 	in
 		if doNextBrick
 			then nextBrick (detectLines state')
-			else doRotations state'
+			else doRotations (detectAllClearBonus state')
 
 -- process translations (gravity and sliding), returns True when the
 -- current brick has been placed
@@ -336,7 +340,7 @@ doTranslation delay (state@(GameState {..})) = let
 			slideTimer = if slideActive || slideFTA' > 0
 				then slideTimer' else resetTimer,
 			lineTimer = if lineFTA' < 0 then resetTimer else lineTimer',
-			field = if lineFTA' < 0
+			field = if (lineFTA' < 0) && (not$null fullLines)
 				then if allClearCheat
 					then clearField else clearLines field' fullLines
 				else field',
@@ -347,7 +351,8 @@ doTranslation delay (state@(GameState {..})) = let
 			currentPos = currentPos',
 			scoreState = updateScore delay scoreState,
 			sfxEvents = [],
-			allClearCheat = False
+			allClearCheat =
+				allClearCheat && not ((lineFTA' < 0) && (not$null fullLines))
 		}, currentHeight' < 0)
 	where
 		dropDelay = getDropDelay (level scoreState) dropKey
@@ -404,20 +409,15 @@ nextBrick (state@(GameState {..})) = let
 		gameOver = (not$isEmpty 20) && (not$isEmpty 21)
 		gameOverKind = if isNewHighScore (score scoreState) highScores
 			then HighScoreMode else GameOverMode
-		allClearBonus = allClear && ((score scoreState) > 0)
 	in
 		state {
-			mode = if gameOver then gameOverKind
-				else if allClearBonus then AllClearBonusMode
-				else mode,
+			mode = if gameOver then gameOverKind else mode,
+			initClearField = False,
 			highScores = if gameOver && gameOverKind == HighScoreMode
 				then insertHighScore (score scoreState) highScores else highScores,
 			-- Reset the down timer if we go to game over, this is because I'm
 			-- reusing the down timer as the game over timer (naughty)
 			downTimer = if gameOver then setTimer gameOverDelay else resetTimer,
-			downFTA = if allClearBonus then 15 * tileS else downFTA,
-			scoreState = if allClearBonus
-				then scoreAllClear scoreState else scoreState,
 			randomState = if emptyBag then randomState' else randomState,
 			gracePeriod = False,
 			brickQueue = if emptyBag
@@ -431,8 +431,25 @@ nextBrick (state@(GameState {..})) = let
 			slideFTA = 0
 		}
 	where
-		isEmpty y =  all (isNothing) [field!(x, y) | x <- [0..9]]
-		allClear = and [isEmpty y| y <- [0..19]]
+		isEmpty = emptyLine field
+
+-- Switch to AllClearBonusMode if the condition is met
+detectAllClearBonus (state@(GameState {..})) =
+	if not (fieldEmpty field && (not initClearField)) then state
+	else state {
+		mode = AllClearBonusMode,
+		downTimer = resetTimer,
+		downFTA = 17 * tileS,
+		scoreState = scoreAllClear scoreState
+	}
+		
+-- Determine if a line is empty
+emptyLine :: Field -> Int -> Bool
+emptyLine field y =  all (isNothing) [field!(x, y) | x <- [0..9]]
+
+-- Determine if the entire field is empty
+fieldEmpty :: Field -> Bool
+fieldEmpty field = field == clearField
 
 -- find lines and schedule them for removal
 detectLines (state@(GameState {..})) = let

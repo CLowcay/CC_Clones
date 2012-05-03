@@ -90,6 +90,7 @@ initGameState = do
 			queuedRotations = 0,
 			fullLines = [],
 			field = clearField,
+			initClearField = True,
 			downTimer = resetTimer,
 			slideTimer = resetTimer,
 			lineTimer = resetTimer,
@@ -142,6 +143,7 @@ mainLoop time0 state0 = do
 			mode = IntroMode,
 			downTimer = resetTimer,
 			field = clearField,
+			initClearField = True,
 			showPreview = False,
 			scoreState = resetScoreState (scoreState state2)
 		})
@@ -173,6 +175,7 @@ gameEventHandler (KeyDown sym) = do
 				put$state {
 					mode = InGameMode,
 					field = clearField,
+					initClearField = True,
 					showPreview = True,
 					scoreState = scoreState {
 						level = 1,

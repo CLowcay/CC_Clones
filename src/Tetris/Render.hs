@@ -70,9 +70,22 @@ renderFrame state@(GameState {..}) = do
 			SlideLeft -> slideFTA
 			SlideRight -> - slideFTA
 		brickVOffset = if gracePeriod then 0 else - downFTA
-	forM_ brickCoords $ \(x, y) -> liftIO$
-		renderAnimation display 0
-			((realX x) + brickHOffset) ((realY y) + brickVOffset) brickAni
+	when (mode /= AllClearBonusMode)$ liftIO$ do
+		forM_ brickCoords $ \(x, y) -> liftIO$
+			renderAnimation display 0
+				((realX x) + brickHOffset) ((realY y) + brickVOffset) brickAni
+	
+	-- render all clear bonus animation
+	when (mode == AllClearBonusMode) $ liftIO$ do
+		let
+			yBase = fieldY + 20 * tileS - downFTA
+			lights = drop (downFTA `div` 13)$ cycle [RedTile, PinkTile,
+				YellowTile, OrangeTile, BlueTile, GreyTile, GreenTile]
+			xLights = [0..9] ++ [9] ++ (reverse [0..9]) ++ [0]
+			yLights = (10 `replicate` (yBase - tileS * 3)) ++ [yBase - tileS * 2] ++
+				(10 `replicate` (yBase - tileS)) ++ [yBase - tileS * 2]
+		forM_ (zip3 (map realX xLights) yLights lights)$ \(x, y, t) -> liftIO$
+			renderAnimation display 0 x y (gfx M.! t)
 
 	-- render border
 	liftIO$ do
