@@ -22,19 +22,12 @@ import Control.Monad.State
 import Data.Array
 import Data.Char
 import System.Random
-import Time
 
 -- Run a function several times
 times :: Int -> (a -> a) -> (a -> a)
 times 0 _ = undefined
 times 1 f = f
 times i f = f.(times (i - 1) f)
-
--- Compute the difference of two clock times to get a time delta
--- result is in picoseconds
-clockTimeDiff :: ClockTime -> ClockTime -> Integer
-clockTimeDiff time0 time1 = let timeDiff = diffClockTimes time1 time0 in
-	max (tdPicosec timeDiff + toInteger (tdSec timeDiff) * 10^12) 0
 
 -- Trim whitespace from a string
 trim :: String -> String
