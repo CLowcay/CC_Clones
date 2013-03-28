@@ -19,6 +19,8 @@ cp src_assets/fonts/titillium/*.otf build/assets/fonts
 
 cp src_assets/highscores build/assets
 
+unix2dos < README | iconv -f UTF-8 -t CP1252 > build/readme.txt
+
 if [ ! -d build ]; then mkdir build; fi
 for exe in snake tetris; do
 	/usr/bin/windres "src/${exe}.rc" "build/${exe}res.o"
@@ -29,5 +31,3 @@ for exe in snake tetris; do
 		-optl"build/${exe}res.o" -O2 \
 		--make src/$exe.hs -o build/$exe
 done
-
-
