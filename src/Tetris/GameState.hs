@@ -221,7 +221,7 @@ toFieldCoords height pos = map (\(x, y) -> (x + pos, height - y))
 isValidPosition :: [(Int, Int)] -> Field -> Bool
 isValidPosition coords field =
 	all (\(x, y) ->
-		y >= 0 && x >= 0 && x < 10 && (isNothing$ field ! (x, y))) coords
+		y >= 0 && y < 22 && x >= 0 && x < 10 && (isNothing$ field ! (x, y))) coords
 
 -- Generate a random bag of blocks
 randomBag :: RandomGen r => State r [Brick]
