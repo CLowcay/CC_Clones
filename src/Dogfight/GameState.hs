@@ -38,8 +38,10 @@ data Laser = {
 data GameState {
 	mode :: GameMode,
 	laserTimer :: AniTimer,
-	shipTimer :: AniTimer,
-	ship_fta :: Int,
+	shipsTimer :: AniTimer,
+	playerTimer :: AniTimer,
+	ships_fta :: Int,
+	player_fta :: Int,
 	score :: Int, scoreCounter :: CounterState,
 	sfxEvents :: [(Sfx, Channels)],  -- sounds to be played after rendering
 	level :: Int, levelCounter :: CounterState,
@@ -90,7 +92,7 @@ updatePosition (x, y) direction = case direction of
 	
 -- Move lasers and detect laser collisions
 doLasers :: Int -> GameState -> GameState
-doLasers :: delay (state@(GameState {...})) = let
+doLasers delay (state@(GameState {...})) = let
 		(frames, laserTimer') =
 			runState (advanceFrames delay laserDelay) laserTimer
 		(lasers', (baddies', playerDead)) =
@@ -143,8 +145,13 @@ doLasers :: delay (state@(GameState {...})) = let
 			ml <- mapM updateLaser lasers
 			return$ catMaybes ml
 
-
 -- Move spaceships.  For every alignment boundary crossed, run the ai and update
 -- the player direction.
 doSpaceships :: Int -> GameState -> GameState
+doSpaceships delay (state@(GameState {...})) = let
+		(playerFrames, playerTimer') =
+			runState (advanceFrames delay playerDelay) playerTimer
+		(shipsFrames, shipsTimer') =
+			runState (advanceFrames delay shipsDelay) shipsTimer
+	in
 
