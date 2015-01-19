@@ -159,13 +159,13 @@ loadSprites = do
 
 loadFont :: IO Font
 loadFont = openFont
-	(getAssetPath "fonts/TitilliumText22L004.otf") 28
+	(getAssetPath "fonts/titillium/TitilliumText22L004.otf") 28
 
 loadLevel :: Int -> GameState -> ReaderT Assets IO GameState
 loadLevel level (state@(GameState {wallStamp})) = do
 	-- load the level file
 	fileData <- fmap lines$
-		liftIO.readFile$ getAssetPath$ "levels/snake" ++ show level
+		liftIO.readFile$ getAssetPath$ "levels/snake" ++ (show level) ++ ".dat"
 	let startDirection = case trim (head fileData) of
 		"D" -> DDown
 		"U" -> DUp

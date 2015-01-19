@@ -125,7 +125,7 @@ loadSprites = do
 
 loadFont :: IO Font
 loadFont = openFont
-	(getAssetPath "fonts/TitilliumText22L004.otf") 28
+	(getAssetPath "fonts/titillium/TitilliumText22L004.otf") 28
 
 makeAnimation :: Surface -> Int -> Int -> Int -> Int -> Animation
 makeAnimation surface w h x y =

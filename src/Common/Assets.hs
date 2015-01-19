@@ -18,8 +18,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 module Common.Assets where
 
-import System.FilePath
+import Paths_ccclones
+import System.IO.Unsafe
 
-getAssetPath :: String -> String
-getAssetPath fileName = normalise (ASSET_PREFIX ++ fileName)
+getAssetPath :: FilePath -> FilePath
+getAssetPath fileName = unsafePerformIO$ getDataFileName fileName
+
+--normalise (ASSET_PREFIX ++ fileName)
 
