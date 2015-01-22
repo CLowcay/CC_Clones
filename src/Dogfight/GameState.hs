@@ -1,60 +1,58 @@
+{-# LANGUAGE Arrows #-}
+{-# LANGUAGE LambdaCase #-}
+
 module Dogfight.GameState (
 	Direction(..),
-	GameMode(..), GameState(..),
-	Tile(..), allTiles,
-	Sfx(..), Channels(..),
-	updateGame
+	Tile(..), allTiles
 ) where
 
-import Control.Monad
-import Data.List
 import Data.Maybe
+import FRP.Events
+import FRP.Yampa
+import FRP.Yampa.Vector2
+import Graphics.UI.SDL hiding (Event, NoEvent)
+import qualified Graphics.UI.SDL as SDL
 
 -- Exposed types
 
 data Direction = DLeft | DRight | DUp | DDown
 	deriving (Enum, Eq, Show)
 
-data GameMode =
-	IntroMode | InGameMode | PausedMode | GameOverMode | HighScoreMode
-	deriving (Enum, Eq, Show)
+data GameOutput =
+		Intro |
+		GameOver |
+		HighScore HighScoreState (Event ()) |
+		Playing GameRound
+	deriving Show
 
-data Motion = {
-	position :: (Int, Int),
-	direction :: Direction,
-	offset :: Int
-} deriving (Show)
+data RoundOutcome = RoundDied | RoundCompleted deriving Show
 
-data Ship = {
-	ship_motion :: Motion,
-	ship_exploding :: Bool
-} deriving (Show)
+data HighScoreEditing = EditingStart | EditingStop deriving Show
 
-data Laser = {
-	laser_motion :: Motion,
-	laser_fta :: Int
-} deriving (Show)
+data GlobalState = GlobalState {
+	gs_score :: Int,
+	gs_level :: Int,
+	gs_scoreC :: CounterState,
+	gs_levelC :: CounterState,
+	gs_highScores :: HighScoreState
+} deriving Show
 
-data GameState {
-	mode :: GameMode,
-	laserTimer :: AniTimer,
-	shipsTimer :: AniTimer,
-	playerTimer :: AniTimer,
-	ships_fta :: Int,
-	player_fta :: Int,
-	score :: Int, scoreCounter :: CounterState,
-	sfxEvents :: [(Sfx, Channels)],  -- sounds to be played after rendering
-	level :: Int, levelCounter :: CounterState,
+data Spaceship = Spaceship (Vector2 Float) Direction
+initSpaceship = Spaceship
+	(vector2 (10 * (fromIntegral tileSize)) (10 * (fromIntegral tileSize))) DLeft
+initEnemy n = Spaceship
+	(vector2 ((fromIntegral n) * 2 * (fromIntegral tileSize)) 0) DDown
 
-	player :: Ship,
-	turn :: Direction,
-	baddies :: [Ship],
-	lasers :: [Laser]
-} deriving (Show)
+data GameRound = GameRound {
+	gr_player :: Spaceship,
+	gr_enemies :: [Spaceship],
+	gr_lasers :: [Vector2 Float],
+	gr_scoreC :: CounterState,
+	gr_levelC :: CounterState
+} deriving Show
 
 data Tile = Digits | Paused | GameOverTile |
-	BlueTile | PinkTile | OrangeTile | YellowTile |
-	RedTile | GreyTile | GreenTile |
+	BoxTile |
 	PlayerR | PlayerD | PlayerL | PlayerU |
 	AiR | AiD | AiL | AiU | EngineR | EngineD | EngineL | EngineU |
 	LaserR | LaserD | LaserL | LaserU
@@ -64,94 +62,114 @@ allTiles = enumFrom Digits   -- A list of all the tiles
 tileSize = 26
 gridSize = 19
 
-data Sfx = Fire | Hit
-	deriving (Enum, Ord, Eq, Show)
+introMode :: GlobalState -> SF SDLEvents GameOutput
+introMode gs = switch doIntro (const$ gameRound gs)
 
-data Channels = SfxChannel1 | SfxChannel2 | ChannelCount
-	deriving (Enum, Ord, Eq, Show)
+gameOverMode :: GlobalState -> SF SDLEvents GameOutput
+gameOverMode = switch doGameOver (const$ introMode gs)
 
--- Update the game state from a delta
-updateGame :: Int -> GameState -> GameState
-updateGame delay (state@(GameState {mode = InGameMode, ..})) = 
-	doSpaceshiops delay $ doLasers delay state
+highScoreMode :: GlobalState -> SF SDLEvents GameOutput
+highScoreMode gs = dswitch doHighScore (\gs' -> introMode gs')
 
--- frames -> fta -> (fta', advanceTiles)
-updateFTA :: Int -> Int -> (Int, Int)
-updateFTA frames fta =
-	let offset = fta - frames
-	in if offset < 0
-		then (offset `mod` tileSize, (abs offset `div` tileSize) + 1)
-		else (offset, 0)
+gameRound :: GlobalState -> SF SDLEvents GameOutput
+gameRound gs = switch doGameRound$ \case 
+	(RoundCompleted, gs') -> gameRound$ gs' {
+		gs_level += 1,
+		gs_score += levelBonus,
+		gs_scoreC = addCounter levelBonus (gs_scoreC gs)
+		gs_levelC = addCounter 1 (gs_levelC gs)
+	}
+	(RoundDied, gs') -> if isNewHighScore (gs_score gs') (gs_highScores gs')
+		then highScoreMode gs' else gameOverMode gs'
 
-updatePosition :: (Int, Int) -> Direction -> (Int, Int)
-updatePosition (x, y) direction = case direction of
-	DUp -> (x, y - 1)
-	DDown -> (x, y + 1)
-	DLeft -> (x - 1, y)
-	DRight -> (x + 1, y)
+doIntro :: SF SDLEvents (GameOutput, Event ())
+doIntro = proc e -> do
+	eF2 <- sdlKeyPresses (mkKey SDLK_F2) True -< e
+	return -< (Intro, eF2 `tag` ())
+
+doGameOver :: SF SDLEvents (GameOutput, Event ())
+doGameOver = proc e -> do
+	r <- after 3 () -< ()
+	return -< (GameOver, r)
+
+doHighScore :: GlobalState -> SF SDLEvents (GameOutput, Event GlobalState)
+doHighScore gs = loopPre (gs_highScore gs)$ proc (e, hs0) -> do
+	let hs1 = execState (handleEvents highScoreEventHandler (event [] id e)) hs0
+
+	eStart <- now EditingStart -< ()
+	let eStop = if isEditing hs1 then Event () else NoEvent
+	let eEditing = eStart `lMerge` (eStop `tag` EditingStop)
 	
--- Move lasers and detect laser collisions
-doLasers :: Int -> GameState -> GameState
-doLasers delay (state@(GameState {...})) = let
-		(frames, laserTimer') =
-			runState (advanceFrames delay laserDelay) laserTimer
-		(lasers', (baddies', playerDead)) =
-			runState updateLasers lasers $ (baddies, False)
-	in
-		state {
-			laserTimer = laserTimer',
-			player = if (playerDead) then player {ship_exploding = True} else player,
-			baddies = baddies',
-			lasers = lasers'
-		}
+	return -< ((HighScore hs1 eEditing, eStop), hs1)
+
+doGameRound :: GlobalState -> SF SDLEvents (GameOutput, Event (RoundOutcome, GlobalState))
+doGameRound gs = proc e -> do
+	ship <- spaceship initSpaceship 1.0 <<< directionInput -< e
+	returnA -< (GameOutput {
+			gr_player = ship,
+			gr_enemies = [],
+			gr_lasers = [],
+			gr_scoreC = gs_scoreC,
+			gr_levelC = gs_levelC
+		}, NoEvent)
+
+spaceship :: Spaceship -> Float -> SF (Event Direction) Spaceship
+spaceship (Spaceship p0 d0) speed = loopPre d0$ proc (e, d) -> do
+	nextDirection <- hold d0 -< e
+	rec {
+		v <- spaceshipV p0 -< (cell, nextDirection)
+		p <- integral -< speed *^ v 
+		cell <- boundaryCrossing p0 -< p
+	}
+	let d' = vToDirection d v
+	returnA -< (Spaceship p d', d')
+
+spaceshipV :: Vector2 Float -> SF (Event (Int, Int), Direction) (Event (Vector2 Float))
+spaceshipV v0 = loopPre v0$  proc ((cell, direction), v) -> do
+	let v' = fmap (\(x, y) ->
+		if inRange x && inRange y then
+			maybe v id$ directionToV direction (odd x) (odd y)
+		else zeroVector) cell
+	returnA -< (v', event v id v')
 	where
-		-- Laser collision detection, also computes effects on baddies and player
-		wallCollision (x, y) = x < 0 || x >= gridSize || y < 0 || y >= gridSize
-		collision :: (Int, Int) -> State ([Ship], Bool) Bool
-		collision pos = do
-			(baddies, playerDead) <- get
-			let (isCollision, baddies') =
-				mapAccumR (c -> ship -> if position.ship_motion ship == pos
-					then (True, ship {ship_exploding = True}) else (c, ship)
-				) False baddies
+		inRange x = x >= 0 && x < gridSize
 
-			let gotPlayer = position.ship_motion player == pos
-			put (baddies', playerDead || gotPlayer)
-			return$ isCollision || gotPlayer
+-- generate an event when we enter a new grid cell
+boundaryCrossing :: Vector2 Float -> SF (Vector2 Float) Event (Int, Int)
+boundaryCrossing p0 = loopPre p0$ proc (p', p) -> do
+	let g0 = toGridCell p
+	let g1 = toGridCell p'
+	return -< if g0 /= g1 then Event g1 else NoEvent
+	where toGridCell v = let (x, y) = vector2XY in (floor x, floor y)
 
-		-- Move the laser, do collision detection,
-		-- and compute effects of collisions 
-		updateLaser :: Laser -> State ([Ship], Bool) (Maybe Laser)
-		updateLaser laser = do
-			(fta', advance) <- updateFTA frames (laser_fta laser)
+type XOdd = Bool
+type YOdd = Bool
+directionToV :: Direction -> XOdd -> YOdd -> Maybe (Vector2 Float)
+directionToV False _ DUp = Just$ vector2 0 (-1)
+directionToV False _ DDown = Just$ vector2 0 1
+directionToV _ False DLeft = Just$ vector2 (-1) 0
+directionToV _ False DRight = Just$ vector2 0 1
+directionToV _ _ _ = Nothing
 
-			(laser', inFlight') <-
-				foldM (\_ (l@(Laser {laser_motion}), inFlight) -> do
-					pos <- updatePosition
-						(position laser_motion) (direction laser_motion)
-					c <- collision pos
-					return$ if c then (laser, False)
-						else if wallCollision pos then (laser, False)
-							else (laser {
-								laser_motion {position = pos},
-								laser_fta = fta'}, inFlight)
-				) (laser, True) [1..advance]
+vToDirection :: Direction -> Vector2 Float -> Direction
+vToDirection d0 v = let (x, y) <- vector2XY in
+	if x < 0 then DLeft
+	else if x > 0 then DRight
+	else if y < 0 then DUp
+	else if y > 0 then DDown
+	else d0
 
-			return$ if inFlight' then Just laser else None
+directionInput :: SF SDLEvents Direction
+directionInput = proc e -> do
+	let keys = mkKey <$> [SDLK_UP, SDLK_DOWN, SDLK_LEFT, SDLK_RIGHT]
+	eKeys <- sdlKeys keys True -< e
+	return <- keyToDirection.last <$> eKeys
 
-		-- update all the lasers
-		updateLasers :: [Laser] -> State ([Ship], Bool) [Laser]
-		updateLasers lasers = do
-			ml <- mapM updateLaser lasers
-			return$ catMaybes ml
-
--- Move spaceships.  For every alignment boundary crossed, run the ai and update
--- the player direction.
-doSpaceships :: Int -> GameState -> GameState
-doSpaceships delay (state@(GameState {...})) = let
-		(playerFrames, playerTimer') =
-			runState (advanceFrames delay playerDelay) playerTimer
-		(shipsFrames, shipsTimer') =
-			runState (advanceFrames delay shipsDelay) shipsTimer
-	in
+keyToDirection :: Keysym -> Direction
+keyToDirection k
+	| k `kEqIgn` SDLK_UP = DUp
+	| k `kEqIgn` SDLK_DOWN = DDown
+	| k `kEqIgn` SDLK_LEFT = DLeft
+	| k `kEqIgn` SDLK_RIGHT = DRight
+	| otherwise = error "Direction keys incorrectly filtered"
 
