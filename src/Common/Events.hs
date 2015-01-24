@@ -16,7 +16,11 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 -}
 
-module Common.Events where
+module Common.Events (
+	EventHandler,
+	pollEvents,
+	handleEvents
+) where
 
 import Graphics.UI.SDL
 import Control.Monad.State

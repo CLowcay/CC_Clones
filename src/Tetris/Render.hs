@@ -57,8 +57,8 @@ renderFrame state@(GameState {..}) = do
 						(Just$Rect (realX x) (realY y) tileS tileS) (Pixel 0)
 					return ()
 				Just tile ->
-					renderAnimation display (fieldTileFrame y)
-						(realX x) (realY y) (gfx M.! tile)
+					renderSprite display (fieldTileFrame y)
+						(realX x, realY y) (gfx M.! tile)
 
 	-- render brick
 	let
@@ -72,8 +72,8 @@ renderFrame state@(GameState {..}) = do
 		brickVOffset = if gracePeriod then 0 else - downFTA
 	when (mode /= AllClearBonusMode)$ liftIO$ do
 		forM_ brickCoords $ \(x, y) -> liftIO$
-			renderAnimation display 0
-				((realX x) + brickHOffset) ((realY y) + brickVOffset) brickAni
+			renderSprite display 0
+				(brickHOffset + realX x, brickVOffset + realY y) brickAni
 	
 	-- render all clear bonus animation
 	when (mode == AllClearBonusMode) $ liftIO$ do
@@ -85,17 +85,17 @@ renderFrame state@(GameState {..}) = do
 			yLights = (10 `replicate` (yBase - tileS * 3)) ++ [yBase - tileS * 2] ++
 				(10 `replicate` (yBase - tileS)) ++ [yBase - tileS * 2]
 		forM_ (zip3 (map realX xLights) yLights lights)$ \(x, y, t) -> liftIO$
-			renderAnimation display 0 x y (gfx M.! t)
+			renderSprite display 0 (x, y) (gfx M.! t)
 
 	-- render border
 	liftIO$ do
-		renderAnimation display 0 0 0 (gfx M.! FrameH)
-		renderAnimation display 0 0 13 (gfx M.! FrameV)
-		renderAnimation display 0 0 533 (gfx M.! FrameH)
-		renderAnimation display 0 273 13 (gfx M.! FrameV)
+		renderSprite display 0 (0, 0) (gfx M.! FrameH)
+		renderSprite display 0 (0, 13) (gfx M.! FrameV)
+		renderSprite display 0 (0, 533) (gfx M.! FrameH)
+		renderSprite display 0 (273, 13) (gfx M.! FrameV)
 		renderCounter (8 + 286) 177 (levelCounter scoreState)
 		renderCounter (54 + 286) 177 (scoreCounter scoreState)
-		renderAnimation display 0 286 0 (gfx M.! SidePanel)
+		renderSprite display 0 (286, 0) (gfx M.! SidePanel)
 
 	-- render preview
 	when showPreview$ do
@@ -104,8 +104,8 @@ renderFrame state@(GameState {..}) = do
 			previewAni = gfx M.! (tile previewBrick)
 			previewCoords = srsCoords previewBrick RUp
 		forM_ previewCoords $ \(x, y) -> liftIO$
-			renderAnimation display 0
-				(325 + x * tileS) (230 + y * tileS) previewAni
+			renderSprite display 0
+				(325 + x * tileS, 230 + y * tileS) previewAni
 	
 	-- UI elements
 	when (mode == IntroMode) $ liftIO$ do
@@ -130,10 +130,10 @@ renderFrame state@(GameState {..}) = do
 			(Color 0xCC 0xCC 0xCC) highScores
 
 	when (mode == PausedMode) $ liftIO$
-		renderAnimation display 0 26 193 (gfx M.! Paused)
+		renderSprite display 0 (26, 193) (gfx M.! Paused)
 
 	when (mode == GameOverMode) $ liftIO$
-		renderAnimation display 0 43 241 (gfx M.! GameOverTile)
+		renderSprite display 0 (43, 241) (gfx M.! GameOverTile)
 
 	liftIO$ Graphics.UI.SDL.flip display
 	return ()

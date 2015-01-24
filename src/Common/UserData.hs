@@ -16,7 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 -}
 
-module Common.UserData where
+module Common.UserData (userDataPath) where
 
 import System.Directory
 import System.FilePath

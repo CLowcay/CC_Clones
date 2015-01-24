@@ -22,7 +22,6 @@ module Common.Queue (
 
 import Data.Sequence ((|>), (><), ViewL((:<)))
 import Prelude hiding (null, length, head)
-import qualified Data.Foldable as F
 import qualified Data.Sequence as Seq
 
 newtype Queue a = Queue {innerSeq :: Seq.Seq a}

@@ -33,7 +33,7 @@ import Control.Monad.State
 import Graphics.UI.SDL
 
 data CounterState = CounterState {
-	digits :: Animation,
+	digits :: Sprite,
 	display :: Int,
 	target :: Int,
 	aniTimer :: AniTimer,
@@ -43,7 +43,7 @@ data CounterState = CounterState {
 } deriving (Show)
 
 -- Initialise a new CounterState
-initCounter :: Animation -> Int -> CounterState
+initCounter :: Sprite -> Int -> CounterState
 initCounter digits nDigits = CounterState {
 	digits = digits,
 	display = 0, target = 0,
@@ -122,8 +122,8 @@ renderCounter x y (state@CounterState {..}) = do
 	ddisplay <- getVideoSurface
 
 	forM_ digitOffsets $ \(iDigit, offset) ->
-		renderAnimationLoopV ddisplay 0
-			(x + (iDigit * 20)) y offset digits
+		renderSpriteLoopV ddisplay 0
+			(x + (iDigit * 20), y) offset digits
 
 	return ()
 

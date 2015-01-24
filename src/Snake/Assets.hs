@@ -45,7 +45,7 @@ import qualified Data.Set as S
 import Snake.GameState
 
 data Assets = Assets {
-	gfx :: M.Map Tile Animation,
+	gfx :: M.Map Tile Sprite,
 	sfx :: M.Map Sfx Chunk,
 	font :: Font,
 	messages :: M.Map Message Surface
@@ -83,10 +83,10 @@ loadSounds = do
 	bump <- loadWAV$ getAssetPath "sfx/bump.wav"
 	return$ M.fromList [(Chomp, chomp), (Bump, bump)]
 
-loadSprites :: IO (M.Map Tile Animation)
+loadSprites :: IO (M.Map Tile Sprite)
 loadSprites = do
 	sheet1 <- loadBMP$ getAssetPath "gfx/Sheet1.bmp"
-	let sheet1Animation = makeAnimation sheet1 16 16
+	let sheet1Animation = makeSprite sheet1 (16, 16)
 	paused <- loadBMP$ getAssetPath "gfx/Paused.bmp"
 	gameOver <- loadBMP$ getAssetPath "gfx/gameOver.bmp"
 	sidePanel <- loadBMP$ getAssetPath "gfx/SidePanel.bmp"
@@ -102,58 +102,47 @@ loadSprites = do
 			headDown, headLeft, headRight, headUp]
 
 	let
-		tileAnimation Digits = makeAnimation digits 20 180 0 0 
-		tileAnimation Paused = makeAnimation paused 234 160 0 0 
-		tileAnimation GameOverTile = makeAnimation gameOver 200 64 0 0 
-		tileAnimation SidePanel = makeAnimation sidePanel 200 480 0 0 
-		tileAnimation HeadDown = Animation {
-		 	surface = headDown,
-		 	frames = listArray (0, 15) (map (\n ->
-				Rect (n * 16) 0 16 16) [0..15])}
-		tileAnimation HeadLeft = Animation {
-		 	surface = headLeft,
-		 	frames = listArray (0, 15) (map (\n ->
-				Rect 0 (n * 16) 16 16) [0..15])}
-		tileAnimation HeadRight = Animation {
-		 	surface = headRight,
-		 	frames = listArray (0, 15) (map (\n ->
-				Rect 0 (n * 16) 16 16) [0..15])}
-		tileAnimation HeadUp = Animation {
-		 	surface = headUp,
-		 	frames = listArray (0, 15) (map (\n ->
-				Rect (n * 16) 0 16 16)[0..15])}
-		tileAnimation SnakeV = sheet1Animation 0 0
-		tileAnimation SnakeH = sheet1Animation 1 0
-		tileAnimation SnakeUL = sheet1Animation 2 0
-		tileAnimation SnakeUR = sheet1Animation 3 0
-		tileAnimation SnakeDR = sheet1Animation 3 1
-		tileAnimation SnakeDL = sheet1Animation 2 1
-		tileAnimation SnakeTHL = sheet1Animation 0 1
-		tileAnimation SnakeTHR = sheet1Animation 1 1
-		tileAnimation SnakeTVU = sheet1Animation 4 0
-		tileAnimation SnakeTVD = sheet1Animation 4 1
-		tileAnimation AppleA = sheet1Animation 5 0
-		tileAnimation AppleB = sheet1Animation 5 1
-		tileAnimation WallV = sheet1Animation 0 2
-		tileAnimation WallH = sheet1Animation 1 2
-		tileAnimation WallUL = sheet1Animation 2 2
-		tileAnimation WallUR = sheet1Animation 3 2
-		tileAnimation WallDR = sheet1Animation 3 3
-		tileAnimation WallDL = sheet1Animation 2 3
-		tileAnimation WallTVU = sheet1Animation 4 2
-		tileAnimation WallTVD = sheet1Animation 4 3
-		tileAnimation WallTHL = sheet1Animation 0 3
-		tileAnimation WallTHR = sheet1Animation 1 3
-		tileAnimation WallDot = sheet1Animation 5 2
-		tileAnimation WallXR = sheet1Animation 0 4
-		tileAnimation WallXU = sheet1Animation 1 4
-		tileAnimation WallXD = sheet1Animation 2 4
-		tileAnimation WallX = sheet1Animation 3 4
-		tileAnimation WallXL = sheet1Animation 4 4
-		tileAnimation DoorInV = sheet1Animation 5 3
-		tileAnimation DoorOutV = sheet1Animation 5 3
-		tileAnimation DoorInH = sheet1Animation 5 4
-		tileAnimation DoorOutH = sheet1Animation 5 4
+		tileAnimation Digits = makeSprite digits (20, 180) (0, 0) 
+		tileAnimation Paused = makeSprite paused (234, 160) (0, 0)
+		tileAnimation GameOverTile = makeSprite gameOver (200, 64) (0, 0)
+		tileAnimation SidePanel = makeSprite sidePanel (200, 480) (0, 0)
+		tileAnimation HeadDown = makeAnimationH headDown (16, 16) 16
+		tileAnimation HeadLeft = makeAnimationV headLeft (16, 16) 16
+		tileAnimation HeadRight = makeAnimationV headRight (16, 16) 16
+		tileAnimation HeadUp = makeAnimationH headUp (16, 16) 16
+
+		tileAnimation SnakeV = sheet1Animation (0, 0)
+		tileAnimation SnakeH = sheet1Animation (1, 0)
+		tileAnimation SnakeUL = sheet1Animation (2, 0)
+		tileAnimation SnakeUR = sheet1Animation (3, 0)
+		tileAnimation SnakeDR = sheet1Animation (3, 1)
+		tileAnimation SnakeDL = sheet1Animation (2, 1)
+		tileAnimation SnakeTHL = sheet1Animation (0, 1)
+		tileAnimation SnakeTHR = sheet1Animation (1, 1)
+		tileAnimation SnakeTVU = sheet1Animation (4, 0)
+		tileAnimation SnakeTVD = sheet1Animation (4, 1)
+		tileAnimation AppleA = sheet1Animation (5, 0)
+		tileAnimation AppleB = sheet1Animation (5, 1)
+		tileAnimation WallV = sheet1Animation (0, 2)
+		tileAnimation WallH = sheet1Animation (1, 2)
+		tileAnimation WallUL = sheet1Animation (2, 2)
+		tileAnimation WallUR = sheet1Animation (3, 2)
+		tileAnimation WallDR = sheet1Animation (3, 3)
+		tileAnimation WallDL = sheet1Animation (2, 3)
+		tileAnimation WallTVU = sheet1Animation (4, 2)
+		tileAnimation WallTVD = sheet1Animation (4, 3)
+		tileAnimation WallTHL = sheet1Animation (0, 3)
+		tileAnimation WallTHR = sheet1Animation (1, 3)
+		tileAnimation WallDot = sheet1Animation (5, 2)
+		tileAnimation WallXR = sheet1Animation (0, 4)
+		tileAnimation WallXU = sheet1Animation (1, 4)
+		tileAnimation WallXD = sheet1Animation (2, 4)
+		tileAnimation WallX = sheet1Animation (3, 4)
+		tileAnimation WallXL = sheet1Animation (4, 4)
+		tileAnimation DoorInV = sheet1Animation (5, 3)
+		tileAnimation DoorOutV = sheet1Animation (5, 3)
+		tileAnimation DoorInH = sheet1Animation (5, 4)
+		tileAnimation DoorOutH = sheet1Animation (5, 4)
 	return$ M.fromList$ map (\tile ->
 		(tile, tileAnimation tile)) allTiles
 
@@ -208,7 +197,7 @@ loadLevel level (state@(GameState {wallStamp})) = do
 	liftIO$fillRect wallStamp (Just$ Rect 0 0 480 480) (Pixel 0x00000000)
 
 	liftIO$ forM_ toRender $ \((x, y), tile) ->
-		renderAnimation wallStamp 0 (x * 16) (y * 16) (gfx M.! tile)
+		renderSprite wallStamp 0 (x * 16, y * 16) (gfx M.! tile)
 	
 	-- Prepare the doors
 	let isInDoorTile = (\(_, tile) -> tile `elem` [DoorInH, DoorInV])
@@ -248,12 +237,5 @@ loadLevel level (state@(GameState {wallStamp})) = do
 		level = level,
 		levelCounter = setCounter level (levelCounter state),
 		eatingApples = []
-	}
-
-makeAnimation :: Surface -> Int -> Int -> Int -> Int -> Animation
-makeAnimation surface w h x y =
-	Animation {
-		surface = surface,
-		frames = listArray (0, 0) [Rect (x * w) (y * h) w h]
 	}
 

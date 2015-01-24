@@ -46,25 +46,25 @@ renderFrame state@(GameState {..}) = do
 	liftIO$ do
 		blitSurface wallStamp Nothing display (Just$ Rect 0 0 0 0)
 		let (x, y, open) = inDoor in unless open $
-			renderAnimation display 0 (x * 16) (y * 16)
+			renderSprite display 0 (x * 16, y * 16)
 				(gfx M.! inDoorTile)
 		let (x, y, open) = outDoor in unless open $
-			renderAnimation display 0 (x * 16) (y * 16)
+			renderSprite display 0 (x * 16, y * 16)
 				(gfx M.! outDoorTile)
 
 	-- render the side panel
 	liftIO$ do
 		renderCounter (23 + 480) 172 levelCounter
 		renderCounter (84 + 480) 172 scoreCounter
-		renderAnimation display 0 480 0 (gfx M.! SidePanel)
+		renderSprite display 0 (480, 0) (gfx M.! SidePanel)
 
 	-- render food
 	liftIO$ do
 		forM_ (M.keys foodCells) $ \(x, y) ->
-			renderAnimation display 0 (x * 16) (y * 16)
+			renderSprite display 0 (x * 16, y * 16)
 				(gfx M.! (foodCells M.! (x, y)))
 		forM_ eatingApples $ \((x, y), tile) ->
-			renderAnimation display 0 (x * 16) (y * 16) (gfx M.! tile)
+			renderSprite display 0 (x * 16, y * 16) (gfx M.! tile)
 
 	-- The snake
 	when (mode `elem` [InGameMode, GameOverMode, PausedMode, HighScoreMode]) $
@@ -89,10 +89,10 @@ renderFrame state@(GameState {..}) = do
 		return ()
 
 	when (mode == PausedMode) $ liftIO$
-		renderAnimation display 0 123 160 (gfx M.! Paused)
+		renderSprite display 0 (123, 160) (gfx M.! Paused)
 
 	when (mode == GameOverMode) $ liftIO$
-		renderAnimation display 0 140 208 (gfx M.! GameOverTile)
+		renderSprite display 0 (140, 208) (gfx M.! GameOverTile)
 
 	liftIO$ Graphics.UI.SDL.flip display
 	return ()
@@ -135,7 +135,7 @@ renderSnake dst frame (state@(GameState {snakeCells})) = do
 
 	-- render body
 	liftIO$ forM_ bodyTiles $ \(((x, y), show), tile) ->
-		when show $ renderAnimation dst 0 x y (gfx M.! tile)
+		when show $ renderSprite dst 0 (x, y) (gfx M.! tile)
 
 	-- render tail
 	liftIO$ case tailTiles of
@@ -153,24 +153,24 @@ renderSnake dst frame (state@(GameState {snakeCells})) = do
 		cornerTiles = [SnakeUL, SnakeDL, SnakeUR, SnakeDR]
 
 		renderHead1 (((x, y), show), tile) offset render gfx =
-			when show $ render (gfx M.! tile) frame offset x y >> return ()
+			when show $ render (gfx M.! tile) frame offset (x, y) >> return ()
 
 		renderHead2 (((x, y), show), tile) headAni offset render gfx =
 			when show $ if tile `notElem` cornerTiles then do
-					render headAni frame offset 16 x y
+					render headAni frame offset 16 (x, y)
 					return ()
 				else do
-					renderAnimation dst 0 x y (gfx M.! tile)
+					renderSprite dst 0 (x, y) (gfx M.! tile)
 					return ()
 
 		renderHead3 (((x, y), show), tile) headAni offset render1 render2 gfx =
 			when show $ if tile `notElem` cornerTiles
 				then do
-					render2 headAni frame offset offset x y
-					render1 (gfx M.! tile) 0 offset x y
+					render2 headAni frame offset offset (x, y)
+					render1 (gfx M.! tile) 0 offset (x, y)
 					return ()
 				else do
-					renderAnimation dst 0 x y (gfx M.! tile)
+					renderSprite dst 0 (x, y) (gfx M.! tile)
 					return ()
 
 		renderTail snakeTile1 snakeTile2 offset render1 render2 gfx = do
@@ -178,66 +178,50 @@ renderSnake dst frame (state@(GameState {snakeCells})) = do
 				(((x1, y1), show1), tile1) = snakeTile1
 				(((x2, y2), show2), tile2) = snakeTile2
 			when show1 $ do
-				render1 (gfx M.! tile1) 0 offset x1 y1
+				render1 (gfx M.! tile1) 0 offset (x1, y1)
 				return ()
 			when show2 $ if tile2 `notElem` cornerTiles
 				then do
-					render2 (gfx M.! tile1) 0 offset offset x2 y2
-					render1 (gfx M.! tile2) 0 offset x2 y2
+					render2 (gfx M.! tile1) 0 offset offset (x2, y2)
+					render1 (gfx M.! tile2) 0 offset (x2, y2)
 					return ()
 				else do
-					renderAnimation dst 0 x2 y2 (gfx M.! tile2)
+					renderSprite dst 0 (x2, y2) (gfx M.! tile2)
 					return ()
 
-		renderLeft1 src frame offset x y =
-			blitSurface (surface src)
-				(Just$ adjRect src frame $ Rect 0 0 (16 - offset) 16)
-				dst (Just$ Rect (x + offset) y 0 0)
-		renderLeft2 src frame offset w x y =
-			blitSurface (surface src)
-				(Just$ adjRect src frame $ Rect (19 - offset) 0 w 16)
-				dst (Just$ Rect x y 0 0)
-		renderLeftT2 src frame offset w x y =
-			blitSurface (surface src)
-				(Just$ adjRect src frame $ Rect (16 - offset) 0 w 16)
-				dst (Just$ Rect x y 0 0)
-		renderRight1 src frame offset x y =
-			blitSurface (surface src)
-				(Just$ adjRect src frame $ Rect (offset + 3) 0 (16 - offset) 16)
-				dst (Just$ Rect x y 0 0)
-		renderRightT1 src frame offset x y =
-			blitSurface (surface src)
-				(Just$ adjRect src frame $ Rect offset 0 (16 - offset) 16)
-				dst (Just$ Rect x y 0 0)
-		renderRight2 src frame offset w x y =
-			blitSurface (surface src)
-				(Just$ adjRect src frame $ Rect (offset - w) 0 w 16)
-				dst (Just$ Rect (x + 16 - w) y 0 0)
-		renderUp1 src frame offset x y =
-			blitSurface (surface src)
-				(Just$ adjRect src frame $ Rect 0 0 16 (16 - offset))
-				dst (Just$ Rect x (y + offset) 0 0)
-		renderUp2 src frame offset h x y =
-			blitSurface (surface src)
-				(Just$ adjRect src frame $ Rect 0 (19 - offset) 16 h)
-				dst (Just$ Rect x y 0 0)
-		renderUpT2 src frame offset h x y =
-			blitSurface (surface src)
-				(Just$ adjRect src frame $ Rect 0 (16 - offset) 16 h)
-				dst (Just$ Rect x y 0 0)
-		renderDown1 src frame offset x y =
-			blitSurface (surface src)
-				(Just$ adjRect src frame $ Rect 0 (offset + 3) 16 (16 - offset))
-				dst (Just$ Rect x y 0 0)
-		renderDownT1 src frame offset x y =
-			blitSurface (surface src)
-				(Just$ adjRect src frame $ Rect 0 offset 16 (16 - offset))
-				dst (Just$ Rect x y 0 0)
-		renderDown2 src frame offset h x y =
-			blitSurface (surface src)
-				(Just$ adjRect src frame $ Rect 0 (offset - h) 16 h)
-				dst (Just$ Rect x (y + 16 - h) 0 0)
-		adjRect src frame (Rect x y w h) =
-			let (Rect x0 y0 _ _) = frames src ! frame in
-				Rect (x0 + x) (y0 + y) w h
+		renderLeft1 sprite frame offset (x, y) =
+			renderSpritePart dst sprite frame (x + offset, y)$ Rect 0 0 (16 - offset) 16
+
+		renderLeft2 sprite frame offset w pos =
+			renderSpritePart dst sprite frame pos$ Rect (19 - offset) 0 w 16
+
+		renderLeftT2 sprite frame offset w pos =
+			renderSpritePart dst sprite frame pos$ Rect (16 - offset) 0 w 16
+
+		renderRight1 sprite frame offset pos =
+			renderSpritePart dst sprite frame pos$ Rect (offset + 3) 0 (16 - offset) 16
+
+		renderRightT1 sprite frame offset pos =
+			renderSpritePart dst sprite frame pos$ Rect offset 0 (16 - offset) 16
+
+		renderRight2 sprite frame offset w (x, y) =
+			renderSpritePart dst sprite frame (x + 16 - w, y)$ Rect (offset - w) 0 w 16
+
+		renderUp1 sprite frame offset (x, y) =
+			renderSpritePart dst sprite frame (x, y + offset)$ Rect 0 0 16 (16 - offset)
+
+		renderUp2 sprite frame offset h pos =
+			renderSpritePart dst sprite frame pos$ Rect 0 (19 - offset) 16 h
+
+		renderUpT2 sprite frame offset h pos =
+			renderSpritePart dst sprite frame pos$ Rect 0 (16 - offset) 16 h
+
+		renderDown1 sprite frame offset pos =
+			renderSpritePart dst sprite frame pos$ Rect 0 (offset + 3) 16 (16 - offset)
+
+		renderDownT1 sprite frame offset pos =
+			renderSpritePart dst sprite frame pos$ Rect 0 offset 16 (16 - offset)
+
+		renderDown2 sprite frame offset h (x, y) =
+			renderSpritePart dst sprite frame (x, y + 16 - h)$ Rect 0 (offset - h) 16 h
 

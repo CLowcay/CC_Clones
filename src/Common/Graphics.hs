@@ -16,36 +16,75 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 -}
 
-module Common.Graphics where
+module Common.Graphics (
+	Sprite,
+	renderSprite, renderSpritePart, renderSpriteLoopV,
+	makeSprite, makeAnimationH, makeAnimationV
+) where
 
 import Data.Array
 import Graphics.UI.SDL
 
-data Animation = Animation {
+data Sprite = Sprite {
 	surface :: Surface,
 	frames :: Array Int Rect
 } deriving (Show)
 
 -- Render a frame from an animation
-renderAnimation :: Surface -> Int -> Int -> Int -> Animation -> IO ()
-renderAnimation dst frame x y animation = do
+renderSprite :: Surface -> Int -> (Int, Int) -> Sprite -> IO ()
+renderSprite dst frame (x, y) sprite = do
 	blitSurface
-		(surface animation) (Just$ frames animation ! frame)
+		(surface sprite) (Just$ frames sprite ! frame)
 		dst (Just$ Rect x y 0 0)
 	return ()
 
--- Render a frame from an animation as a vertical loop
-renderAnimationLoopV :: Surface -> Int ->
-	Int -> Int -> Int -> Animation -> IO ()
-renderAnimationLoopV dst frame x y offset animation = do
-	let srect = frames animation ! frame
+-- Render part of a frame
+renderSpritePart :: Surface -> Sprite -> Int -> (Int, Int) -> Rect -> IO ()
+renderSpritePart dst sprite frame (x, y) (Rect xOff yOff w h) = do
+	let (Rect x0 y0 _ _) = frames sprite ! frame
+
+	blitSurface (surface sprite)
+		(Just$ Rect (x0 + xOff) (y0 + yOff) w h)
+		dst (Just$ Rect x y 0 0)
+	
+	return ()
+
+-- Render a frame from a sprite as a vertical loop
+renderSpriteLoopV :: Surface -> Int ->
+	(Int, Int) -> Int -> Sprite -> IO ()
+renderSpriteLoopV dst frame (x, y) offset sprite = do
+	let srect = frames sprite ! frame
 	blitSurface
-		(surface animation) (Just$ srect {
+		(surface sprite) (Just$ srect {
 			rectY = rectY srect + offset,
 			rectH = rectH srect - offset})
 		dst (Just$ Rect x y 0 0)
 	blitSurface
-		(surface animation) (Just$ srect {rectH = offset})
+		(surface sprite) (Just$ srect {rectH = offset})
 		dst (Just$ Rect x (y + (rectH srect - offset)) 0 0)
 	return ()
+
+-- Make sprites from preloaded surfaces
+makeSprite :: Surface -> (Int, Int) -> (Int, Int) -> Sprite
+makeSprite surface (w, h) (xTile, yTile) =
+	Sprite {
+		surface = surface,
+		frames = listArray (0, 0) [Rect (xTile * w) (yTile * h) w h]
+	}
+
+makeAnimationH :: Surface -> (Int, Int) -> Int -> Sprite
+makeAnimationH surface (w, h) frames =
+	Sprite {
+		surface = surface,
+		frames = listArray (0, (frames - 1))
+			[Rect (i * w) 0 w h | i <- [0..(frames - 1)]]
+	}
+
+makeAnimationV :: Surface -> (Int, Int) -> Int -> Sprite
+makeAnimationV surface (w, h) frames =
+	Sprite {
+		surface = surface,
+		frames = listArray (0, (frames - 1))
+			[Rect 0 (i * h) w h | i <- [0..(frames - 1)]]
+	}
 

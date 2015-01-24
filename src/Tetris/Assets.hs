@@ -34,7 +34,7 @@ import qualified Data.Map as M
 import Tetris.GameState
 
 data Assets = Assets {
-	gfx :: M.Map Tile Animation,
+	gfx :: M.Map Tile Sprite,
 	sfx :: M.Map Sfx Chunk,
 	font :: Font,
 	messages :: M.Map Message Surface
@@ -74,7 +74,7 @@ loadSounds = do
 	line <- loadWAV$ getAssetPath "sfx/LBlip.wav"
 	return$ M.fromList [(SfxTurn, turn), (SfxLine, line)]
 
-loadSprites :: IO (M.Map Tile Animation)
+loadSprites :: IO (M.Map Tile Sprite)
 loadSprites = do
 	paused <- loadBMP$ getAssetPath "gfx/Paused.bmp"
 	gameOver <- loadBMP$ getAssetPath "gfx/gameOver.bmp"
@@ -93,25 +93,25 @@ loadSprites = do
 	greenTile <- loadBMP$ getAssetPath "gfx/GreenShrink.bmp"
 
 	let
-		redTileAni =  makeAnimationH redTile tileS tileS 20
-		pinkTileAni = makeAnimationH pinkTile tileS tileS 20
-		yellowTileAni = makeAnimationH yellowTile tileS tileS 20
-		orangeTileAni = makeAnimationH orangeTile tileS tileS 20
-		blueTileAni = makeAnimationH blueTile tileS tileS 20
-		greyTileAni = makeAnimationH greyTile tileS tileS 20
-		greenTileAni = makeAnimationH greenTile tileS tileS 20
+		redTileAni =  makeAnimationH redTile (tileS, tileS) 20
+		pinkTileAni = makeAnimationH pinkTile (tileS, tileS) 20
+		yellowTileAni = makeAnimationH yellowTile (tileS, tileS) 20
+		orangeTileAni = makeAnimationH orangeTile (tileS, tileS) 20
+		blueTileAni = makeAnimationH blueTile (tileS, tileS) 20
+		greyTileAni = makeAnimationH greyTile (tileS, tileS) 20
+		greenTileAni = makeAnimationH greenTile (tileS, tileS) 20
 
 	mapM_ (\surface ->
 			setColorKey surface [SrcColorKey] (Pixel 0x00FF00FF))
 		[paused, gameOver, digits, sidePanel]
 
 	let
-		tileAnimation Digits = makeAnimation digits 20 180 0 0
-		tileAnimation Paused = makeAnimation paused 234 160 0 0
-		tileAnimation GameOverTile = makeAnimation gameOver 200 64 0 0
-		tileAnimation FrameH = makeAnimation frameH 286 13 0 0
-		tileAnimation FrameV = makeAnimation frameV 13 520 0 0
-		tileAnimation SidePanel = makeAnimation sidePanel 195 546 0 0
+		tileAnimation Digits = makeSprite digits (20, 180) (0, 0)
+		tileAnimation Paused = makeSprite paused (234, 160) (0, 0)
+		tileAnimation GameOverTile = makeSprite gameOver (200, 64) (0, 0)
+		tileAnimation FrameH = makeSprite frameH (286, 13) (0, 0)
+		tileAnimation FrameV = makeSprite frameV (13, 520) (0, 0)
+		tileAnimation SidePanel = makeSprite sidePanel (195, 546) (0, 0)
 		tileAnimation RedTile = redTileAni
 		tileAnimation PinkTile = pinkTileAni
 		tileAnimation YellowTile = yellowTileAni
@@ -126,19 +126,4 @@ loadSprites = do
 loadFont :: IO Font
 loadFont = openFont
 	(getAssetPath "fonts/titillium/TitilliumText22L004.otf") 28
-
-makeAnimation :: Surface -> Int -> Int -> Int -> Int -> Animation
-makeAnimation surface w h x y =
-	Animation {
-		surface = surface,
-		frames = listArray (0, 0) [Rect (x * w) (y * h) w h]
-	}
-
-makeAnimationH :: Surface -> Int -> Int -> Int -> Animation
-makeAnimationH surface w h frames =
-	Animation {
-		surface = surface,
-		frames = listArray (0, (frames - 1))
-			[Rect (i * w) 0 w h | i <- [0..(frames - 1)]]
-	}
 
