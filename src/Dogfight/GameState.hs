@@ -52,7 +52,7 @@ data GameRound = GameRound {
 } deriving Show
 
 data Tile = Digits | Paused | GameOverTile |
-	BoxTile |
+	SidePanel | BoxTile | Background |
 	PlayerR | PlayerD | PlayerL | PlayerU |
 	AiR | AiD | AiL | AiU | EngineR | EngineD | EngineL | EngineU |
 	LaserR | LaserD | LaserL | LaserU

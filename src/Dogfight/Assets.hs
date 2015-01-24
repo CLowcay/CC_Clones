@@ -1,5 +1,5 @@
 module Dogfight.Assets (
-	Assets(..), Message(..),
+	Assets(..),
 	loadAssets
 ) where
 
@@ -8,110 +8,92 @@ import Common.Assets
 import Common.Counters
 import Common.Graphics
 import Common.Util
+import Control.Applicative
 import Dogfight.Gamestate
 import Graphics.UI.SDL
 import Graphics.UI.SDL.Mixer
 import Graphics.UI.SDL.TTF
 
 data Assets = Assets {
-	gfx :: M.Map Tile Animation,
-	sfx :: M.Map Sfx Chunk,
-	font :: Font,
+	gfx :: M.Map Tile Sprite,
+	font :: Font
 }
 
 -- Load all assets
 loadAssets :: IO Assets
 loadAssets = do
 	gfx <- loadSprites
-	sfx <- loadSounds
 	font <- loadFont
 
 	return Assets {
 		gfx = gfx,
-		sfx = sfx,
-		font = font,
-		messages = M.fromList messageData
+		font = font
 	}
-
-loadSounds :: IO (M.Map Sfx Chunk)
-loadSounds = do
-	return$ M.fromList []
 
 loadSprites :: IO (M.Map Tile Animation)
 loadSprites = do
-	sheet1 <- loadBMP$ getAssetPath "gfx/Sheet1.bmp"
-	let sheet1Animation = makeAnimation sheet1 16 16
+	sheet1 <- loadBMP$ getAssetPath "gfx/hideandseek.bmp"
+	let sheet1Sprite = makeSprite sheet1 (16, 16)
+	boxTile <- loadBMP$ getAssetPath "gfx/blueblock.bmp"
+	panel <- loadBMP$ getAssetPath "gfx/spaceshipsPanel.bmp"
 	paused <- loadBMP$ getAssetPath "gfx/Paused.bmp"
 	gameOver <- loadBMP$ getAssetPath "gfx/gameOver.bmp"
-	sidePanel <- loadBMP$ getAssetPath "gfx/SidePanel.bmp"
 	digits <- loadBMP$ getAssetPath "gfx/Digits.bmp"
-	headDown <- loadBMP$ getAssetPath "gfx/HeadDown.bmp"
-	headLeft <- loadBMP$ getAssetPath "gfx/HeadLeft.bmp"
-	headRight <- loadBMP$ getAssetPath "gfx/HeadRight.bmp"
-	headUp <- loadBMP$ getAssetPath "gfx/HeadUp.bmp"
 
-	mapM_ (\surface ->
-			setColorKey surface [SrcColorKey] (Pixel 0x00FF00FF))
-		[sheet1, paused, gameOver, sidePanel, digits,
-			headDown, headLeft, headRight, headUp]
+	forM_ [paused, gameOver, panel, digits]$ \surface ->
+		setColorKey surface [SrcColorKey] (Pixel 0x00FF00FF))
 
 	let
-		tileAnimation Digits = makeAnimation digits 20 180 0 0 
-		tileAnimation Paused = makeAnimation paused 234 160 0 0 
-		tileAnimation GameOverTile = makeAnimation gameOver 200 64 0 0 
-		tileAnimation SidePanel = makeAnimation sidePanel 200 480 0 0 
-		tileAnimation HeadDown = Animation {
-		 	surface = headDown,
-		 	frames = listArray (0, 15) (map (\n ->
-				Rect (n * 16) 0 16 16) [0..15])}
-		tileAnimation HeadLeft = Animation {
-		 	surface = headLeft,
-		 	frames = listArray (0, 15) (map (\n ->
-				Rect 0 (n * 16) 16 16) [0..15])}
-		tileAnimation HeadRight = Animation {
-		 	surface = headRight,
-		 	frames = listArray (0, 15) (map (\n ->
-				Rect 0 (n * 16) 16 16) [0..15])}
-		tileAnimation HeadUp = Animation {
-		 	surface = headUp,
-		 	frames = listArray (0, 15) (map (\n ->
-				Rect (n * 16) 0 16 16)[0..15])}
-		tileAnimation SnakeV = sheet1Animation 0 0
-		tileAnimation SnakeH = sheet1Animation 1 0
-		tileAnimation SnakeUL = sheet1Animation 2 0
-		tileAnimation SnakeUR = sheet1Animation 3 0
-		tileAnimation SnakeDR = sheet1Animation 3 1
-		tileAnimation SnakeDL = sheet1Animation 2 1
-		tileAnimation SnakeTHL = sheet1Animation 0 1
-		tileAnimation SnakeTHR = sheet1Animation 1 1
-		tileAnimation SnakeTVU = sheet1Animation 4 0
-		tileAnimation SnakeTVD = sheet1Animation 4 1
-		tileAnimation AppleA = sheet1Animation 5 0
-		tileAnimation AppleB = sheet1Animation 5 1
-		tileAnimation WallV = sheet1Animation 0 2
-		tileAnimation WallH = sheet1Animation 1 2
-		tileAnimation WallUL = sheet1Animation 2 2
-		tileAnimation WallUR = sheet1Animation 3 2
-		tileAnimation WallDR = sheet1Animation 3 3
-		tileAnimation WallDL = sheet1Animation 2 3
-		tileAnimation WallTVU = sheet1Animation 4 2
-		tileAnimation WallTVD = sheet1Animation 4 3
-		tileAnimation WallTHL = sheet1Animation 0 3
-		tileAnimation WallTHR = sheet1Animation 1 3
-		tileAnimation WallDot = sheet1Animation 5 2
-		tileAnimation WallXR = sheet1Animation 0 4
-		tileAnimation WallXU = sheet1Animation 1 4
-		tileAnimation WallXD = sheet1Animation 2 4
-		tileAnimation WallX = sheet1Animation 3 4
-		tileAnimation WallXL = sheet1Animation 4 4
-		tileAnimation DoorInV = sheet1Animation 5 3
-		tileAnimation DoorOutV = sheet1Animation 5 3
-		tileAnimation DoorInH = sheet1Animation 5 4
-		tileAnimation DoorOutH = sheet1Animation 5 4
+		bg = makeBackground$ spriteFor BoxTile
+
+		spriteFor Background = makeSprite bg (520, 546) (0, 0)
+		spriteFor Digits = makeSprite digits (20, 180) (0, 0) 
+		spriteFor Paused = makeSprite paused (234, 160) (0, 0) 
+		spriteFor GameOverTile = makeSprite gameOver (200, 64) (0, 0) 
+		spriteFor SidePanel = makeSprite panel (208, 546) (0, 0) 
+		spriteFor BoxTile = makeSprite boxTile (26, 26) (0, 0)
+		spriteFor PlayerR = sheet1Sprite (0, 0)
+		spriteFor PlayerD = sheet1Sprite (26, 0)
+		spriteFor PlayerL = sheet1Sprite (52, 0)
+		spriteFor PlayerU = sheet1Sprite (78, 0)
+		spriteFor AiR = sheet1Sprite (0, 26)
+		spriteFor AiD = sheet1Sprite (26, 26)
+		spriteFor AiL = sheet1Sprite (52, 26)
+		spriteFor AiU = sheet1Sprite (78, 26)
+		spriteFor EngineR = sheet1Sprite (0, 78)
+		spriteFor EngineD = sheet1Sprite (26, 78)
+		spriteFor EngineL = sheet1Sprite (52, 78)
+		spriteFor EngineU = sheet1Sprite (78, 78)
+		spriteFor LaserR = sheet1Sprite (0, 52)
+		spriteFor LaserD = sheet1Sprite (26, 52)
+		spriteFor LaserL = sheet1Sprite (52, 52)
+		spriteFor LaserU = sheet1Sprite (78, 52)
+
 	return$ M.fromList$ map (\tile ->
-		(tile, tileAnimation tile)) allTiles
+		(tile, spriteFor tile)) allTiles
+
+makeBackground :: Sprite -> IO Surface
+makeBackground boxSprite = do
+	surface <- createRGBSurface [HWSurface] 520 546 32
+		0x000000FF 0x0000FF00 0x00FF0000 0xFF000000 >>= displayFormat
+
+	forM_ (vBorderPos 0 <$> [1..21])$ \pos -> do
+		renderSprite surface 0 pos boxSprite
+	forM_ (hBorderPos 0 <$> [1..19])$ \pos -> do
+		renderSprite surface 0 pos boxSprite
+	forM_ (hBorderPos 520 <$> [1..19])$ \pos -> do
+		renderSprite surface 0 pos boxSprite
+	forM_ (boxPos <$> [1..8] <*> [1..8]))$ \pos -> do
+		renderSprite surface 0 pos boxSprite
+	
+	return surface
+
+	where
+		vBorderPos x n = (x, (n - 1) * 26)
+		hBorderPos y n = (n * 26, y)
+		boxPos (n, m) = (n * 52, m * 52)
 
 loadFont :: IO Font
 loadFont = openFont
-	(getAssetPath "fonts/TitilliumText22L004.otf") 28
+	(getAssetPath "fonts/titillium/TitilliumText22L004.otf") 28
 
