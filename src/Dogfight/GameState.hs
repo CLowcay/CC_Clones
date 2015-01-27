@@ -19,9 +19,9 @@ data Direction = DLeft | DRight | DUp | DDown
 	deriving (Enum, Eq, Show)
 
 data GameOutput =
-		Intro |
-		GameOver |
-		HighScore HighScoreState (Event ()) |
+		Intro GlobalState |
+		GameOver GlobalState |
+		HighScore GlobalState HighScoreState (Event HighScoreEditing) |
 		Playing GameRound
 	deriving Show
 

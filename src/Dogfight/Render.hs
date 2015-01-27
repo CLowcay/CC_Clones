@@ -11,8 +11,8 @@ import Graphics.UI.SDL hiding (Event, NoEvent)
 import qualified Data.Map as M
 import qualified Graphics.UI.SDL as SDL
 
-renderOutput :: GlobalState -> GameOutput -> ReaderT Assets IO ()
-renderOutput (GlobalState {..}) Intro = do
+renderOutput :: GameOutput -> ReaderT Assets IO ()
+renderOutput (Intro (GlobalState {..})) = do
 	Assets {..} <- ask
 	liftIO$ do
 		dst <- getVideoSurface
@@ -28,7 +28,7 @@ renderOutput (GlobalState {..}) Intro = do
 
 	renderSidePanel (gs_levelC, gs_scoreC)
 
-renderOutput (GlobalState {..}) GameOver = do
+renderOutput (GameOver (GlobalState {..})) = do
 	Assets {..} <- ask
 	liftIO$ do
 		dst <- getVideoSurface
@@ -43,11 +43,11 @@ renderOutput (GlobalState {..}) GameOver = do
 
 	renderSidePanel (gs_levelC, gs_scoreC)
 
-renderOutput (GlobalState {..}) (HighScore hs _) = do
+renderOutput (HighScore (GlobalState {..}) hs _) = do
 	liftIO$ renderHighScores dst (30, 90) (494 - 30 * 2) font messageColor hs
 	renderSidePanel (gs_levelC, gs_scoreC)
 
-renderOutput (GlobalState {..}) (Playing (GameRound {..})) = do
+renderOutput (Playing (GameRound {..})) = do
 	Assets {..} <- ask
 
 	renderBackground

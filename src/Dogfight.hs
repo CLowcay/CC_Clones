@@ -16,26 +16,44 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 -}
 
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Main where
 
+import Common.Counters
+import Common.HighScores
+import Control.Applicative
 import Control.Monad
-import Graphics.UI.SDL
-import Graphics.UI.SDL.Mixer
+import Dogfight.Assets
+import Dogfight.GameState
+import Dogfight.Render
+import FRP.Events
+import FRP.Yampa
+import Graphics.UI.SDL hiding (Event, NoEvent)
 import Graphics.UI.SDL.Time
 import Graphics.UI.SDL.TTF
+import qualified Graphics.UI.SDL as SDL
+
+windowCaption :: String
+windowCaption = "Spaceships!"
 
 -- Entry point
 main :: IO ()
 main = do
 	initSDL
 	setCaption windowCaption windowCaption
-	assets <- loadAssets
-	state0 <- runReaderT initGameState assets
-	time <- fmap fromIntegral$ getTicks
-	runReaderT (mainLoop time state0) assets
+
+	assets@(Assets{..}) <- loadAssets
+	gs <- initGlobalState$ gfx M.! Digits
+	time <- newIORef =<< fromIntegral <$> getTicks
+
+	reactimate
+		(Event <$> getSDLEvents)
+		(getInput time)
+		(handleOutput assets)
+		(sfMain gs)
+
+
 	closeAudio
 	Graphics.UI.SDL.quit
 
@@ -43,29 +61,54 @@ main = do
 initSDL :: IO ()
 initSDL = do
 	Graphics.UI.SDL.init [InitVideo]
-	setVideoMode 481 546 32 [HWSurface, DoubleBuf]
+	setVideoMode 728 546 32 [HWSurface, DoubleBuf]
 	Graphics.UI.SDL.TTF.init
-	-- openAudio defaultFrequency AudioS16Sys 2 4096
-	-- allocateChannels (fromEnum ChannelCount)
 	return ()
 
-mainLoop :: Int -> GameState -> ReaderT Assets IO ()
-mainLoop time0 state0 = do
-	renderFrame state0
+getInput :: IORef Int -> Bool -> IO (DTime, Maybe SDLEvents)
+getInput time canBlock = do
+	t0 <- readIORef time
+	t1 <- fromIntegral <$> getTicks
+	writeIORef time t1
 
-	time1 <- fmap fromIntegral$ liftIO$getTicks
-	let delay = time1 - time0
+	let dt = t1 - t0
 
-	-- Run event handler, which may alter the game state
-	events <- liftIO$pollEvents
-	let (continue, state1) = if mode state0 == HighScoreMode
-		then let
-			(continue', hstate) = runState
-				(handleEvents highScoreEventHandler events) (highScores state0)
-			in (continue', state0 {highScores = hstate})
-		else runState (handleEvents gameEventHandler events) state0
+	sdlevents <- getSDLEvents
+	let events = if null sdlevents then NoEvent else Event sdlevents
+
+	return ((fromIntegral dt) / 1000, Just events)
+
+handleOutput :: Assets -> Bool -> GameOutput -> IO Bool
+handleOutput assets hasChanged go = do
+	case go of
+		HighScore _ _ (Event EditingStart) -> startEditing
+		HighScore _ hs (Event EditingStop) -> endEditing hs
+		_ -> return ()
 	
-	let state2 = updateGame delay state1
+	runReaderT (renderOutput go) assets
 
-	when continue $ mainLoop time1 state2
+	SDL.flip surface
+	return False
+
+initGlobalState :: Sprite -> IO ()
+initGlobalState digits = do
+	hs <- loadHighScoreTable spaceships
+	let scoreC = initCounter digits 4
+	let levelC = initCounter level 2
+	return$ GlobalState {
+		gs_score = 0,
+		gs_level = 1,
+		gs_scoreC = resetCounter 0 scoreC,
+		gs_levelC = resetCounter 1 levelC,
+		gs_highScores = hs
+	}
+
+sfMain :: GlobalState -> SF SDLEvents (GameOutput, Bool)
+sfMain gs = proc e -> do
+	quitEvents <- sdlQuitEvents -< e
+	escEvents <- sdlKeyPresses (mkKey SDLK_ESC) True -< e
+
+	out <- introMode gs -< e
+
+	returnA -< (out, isEvent quitEvents || isEvent escEvents)
 
