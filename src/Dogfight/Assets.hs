@@ -1,6 +1,7 @@
 module Dogfight.Assets (
-	Assets(..),
-	loadAssets
+	Assets(..), Message(..),
+	loadAssets,
+	bgColor, messageColor
 ) where
 
 import Common.AniTimer
@@ -14,10 +15,17 @@ import Graphics.UI.SDL
 import Graphics.UI.SDL.Mixer
 import Graphics.UI.SDL.TTF
 
+bgColor = Pixel 0x323232
+messageColor = Color 0 64 255
+
 data Assets = Assets {
 	gfx :: M.Map Tile Sprite,
 	font :: Font
+	getMessage :: Message -> Surface
 }
+
+data Message = MessageIntro1 | MessageIntro2 | MessageHighScores
+	deriving Show
 
 -- Load all assets
 loadAssets :: IO Assets
@@ -25,9 +33,25 @@ loadAssets = do
 	gfx <- loadSprites
 	font <- loadFont
 
+	messageData <- 
+		mapM (\(m, s) ->
+			surface <- renderUTF8Solid font s messageColor
+			return surface
+		) [
+			(MessageIntro1, "Press F2 to start, Esc to quit"),
+			(MessageIntro2, "High scores:"),
+			(MessageHighScores, "New high score! Enter your name")
+		]
+	
+	let
+		messageMap MessageIntro1 = messageData !! 0
+		messageMap MesageIntro2 = messageData !! 1
+		messageMap MessageHighScores = messageData !! 2
+
 	return Assets {
 		gfx = gfx,
-		font = font
+		font = font,
+		messages = messageMap
 	}
 
 loadSprites :: IO (M.Map Tile Animation)
@@ -44,9 +68,14 @@ loadSprites = do
 		setColorKey surface [SrcColorKey] (Pixel 0x00FF00FF))
 
 	let
-		bg = makeBackground$ spriteFor BoxTile
+		bg = makeBackground (spriteFor BoxTile)
+			(spriteFor FrameH) (spriteFor FrameV)
+		frameV = makeFrameV$ spriteFor BoxTile
+		frameH = makeFrameH$ spriteFor BoxTile
 
 		spriteFor Background = makeSprite bg (520, 546) (0, 0)
+		spriteFor FrameV = makeSprite frameV (26, 546) (0, 0)
+		spriteFor FrameH = makeSprite frameH (494, 26) (0, 0)
 		spriteFor Digits = makeSprite digits (20, 180) (0, 0) 
 		spriteFor Paused = makeSprite paused (234, 160) (0, 0) 
 		spriteFor GameOverTile = makeSprite gameOver (200, 64) (0, 0) 
@@ -72,26 +101,46 @@ loadSprites = do
 	return$ M.fromList$ map (\tile ->
 		(tile, spriteFor tile)) allTiles
 
-makeBackground :: Sprite -> IO Surface
-makeBackground boxSprite = do
+makeVFrame :: Sprite -> IO Surface
+makeVFrame boxSprite = do
+	surface <- createRGBSurface [HWSurface] 26 546 32
+		0x000000FF 0x0000FF00 0x00FF0000 0xFF000000 >>= displayFormat
+
+	forM_ (vBorderPos <$> [1..21])$ \pos -> do
+		renderSprite surface 0 pos boxSprite
+	
+	return surface
+
+	where vBorderPos n = (0, (n - 1) * 26)
+
+makeHFrame :: Sprite -> IO Surface
+makeHFrame boxSprite = do
+	surface <- createRGBSurface [HWSurface] 494 26 32
+		0x000000FF 0x0000FF00 0x00FF0000 0xFF000000 >>= displayFormat
+
+	forM_ (hBorderPos <$> [1..19])$ \pos -> do
+		renderSprite surface 0 pos boxSprite
+	
+	return surface
+
+	where hBorderPos 0 n = ((n - 1) * 26, 0)
+
+makeBackground :: Sprite -> Sprite -> Sprite -> IO Surface
+makeBackground boxSprite hBorder vBorder = do
 	surface <- createRGBSurface [HWSurface] 520 546 32
 		0x000000FF 0x0000FF00 0x00FF0000 0xFF000000 >>= displayFormat
 
-	forM_ (vBorderPos 0 <$> [1..21])$ \pos -> do
-		renderSprite surface 0 pos boxSprite
-	forM_ (hBorderPos 0 <$> [1..19])$ \pos -> do
-		renderSprite surface 0 pos boxSprite
-	forM_ (hBorderPos 520 <$> [1..19])$ \pos -> do
-		renderSprite surface 0 pos boxSprite
+	fillRect surface Nothing bgColor
+	renderSprite surface 0 (0, 0) vBorder
+	renderSprite surface 0 (26, 0) hBorder
+	renderSprite surface 0 (26, 520) hBorder
+
 	forM_ (boxPos <$> [1..8] <*> [1..8]))$ \pos -> do
 		renderSprite surface 0 pos boxSprite
 	
 	return surface
 
-	where
-		vBorderPos x n = (x, (n - 1) * 26)
-		hBorderPos y n = (n * 26, y)
-		boxPos (n, m) = (n * 52, m * 52)
+	where boxPos (n, m) = (n * 52, m * 52)
 
 loadFont :: IO Font
 loadFont = openFont

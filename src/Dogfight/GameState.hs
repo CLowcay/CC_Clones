@@ -37,22 +37,24 @@ data GlobalState = GlobalState {
 	gs_highScores :: HighScoreState
 } deriving Show
 
-data Spaceship = Spaceship (Vector2 Float) Direction
+data Spaceship = Spaceship (Vector2 Float) Direction deriving Show
 initSpaceship = Spaceship
 	(vector2 (10 * (fromIntegral tileSize)) (10 * (fromIntegral tileSize))) DLeft
 initEnemy n = Spaceship
 	(vector2 ((fromIntegral n) * 2 * (fromIntegral tileSize)) 0) DDown
 
+data Laser = Laser (Vector2 Float) Direction deriving Show
+
 data GameRound = GameRound {
 	gr_player :: Spaceship,
 	gr_enemies :: [Spaceship],
-	gr_lasers :: [Vector2 Float],
+	gr_lasers :: [Laser],
 	gr_scoreC :: CounterState,
 	gr_levelC :: CounterState
 } deriving Show
 
 data Tile = Digits | Paused | GameOverTile |
-	SidePanel | BoxTile | Background |
+	SidePanel | BoxTile | Background | FrameV | FrameH |
 	PlayerR | PlayerD | PlayerL | PlayerU |
 	AiR | AiD | AiL | AiU | EngineR | EngineD | EngineL | EngineU |
 	LaserR | LaserD | LaserL | LaserU
