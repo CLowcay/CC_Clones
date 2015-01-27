@@ -54,8 +54,8 @@ renderFrame state@(GameState {..}) = do
 
 	-- render the side panel
 	liftIO$ do
-		renderCounter (23 + 480) 172 levelCounter
-		renderCounter (84 + 480) 172 scoreCounter
+		renderCounter (23 + 480, 172) levelCounter
+		renderCounter (84 + 480, 172) scoreCounter
 		renderSprite display 0 (480, 0) (gfx M.! SidePanel)
 
 	-- render food
@@ -78,13 +78,13 @@ renderFrame state@(GameState {..}) = do
 			display (Just$ Rect ((480 - w1) `div` 2) 128 0 0)
 		blitSurface (messages M.! MessageIntro2) Nothing
 			display (Just$ Rect 32 212 0 0)
-		renderHighScores display 32 260 416 font
+		renderHighScores display (32, 260) 416 font
 			(Color 0 64 255) highScores
 	
 	when (mode == HighScoreMode) $ liftIO$ do
 		blitSurface (messages M.! MessageHighScores) Nothing
 			display (Just$ Rect 32 196 0 0)
-		renderHighScores display 32 260 416 font
+		renderHighScores display (32, 260) 416 font
 			(Color 0 64 255) highScores
 		return ()
 

@@ -111,8 +111,8 @@ resetCounter n state = state {
 }
 
 -- Render the counter
-renderCounter :: Int -> Int -> CounterState -> IO ()
-renderCounter x y (state@CounterState {..}) = do
+renderCounter :: (Int, Int) -> CounterState -> IO ()
+renderCounter (x, y) (state@CounterState {..}) = do
 	let
 		ddigits = fixedFieldLeft nDigits 0 $ toDec display
 		digitOffsets = zip

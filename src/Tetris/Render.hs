@@ -93,8 +93,8 @@ renderFrame state@(GameState {..}) = do
 		renderSprite display 0 (0, 13) (gfx M.! FrameV)
 		renderSprite display 0 (0, 533) (gfx M.! FrameH)
 		renderSprite display 0 (273, 13) (gfx M.! FrameV)
-		renderCounter (8 + 286) 177 (levelCounter scoreState)
-		renderCounter (54 + 286) 177 (scoreCounter scoreState)
+		renderCounter (8 + 286, 177) (levelCounter scoreState)
+		renderCounter (54 + 286, 177) (scoreCounter scoreState)
 		renderSprite display 0 (286, 0) (gfx M.! SidePanel)
 
 	-- render preview
@@ -118,7 +118,7 @@ renderFrame state@(GameState {..}) = do
 			display (Just$ Rect ((260 - w2) `div` 2 + 13) 126 0 0)
 		blitSurface (messages M.! MessageIntro3) Nothing
 			display (Just$ Rect 16 216 0 0)
-		renderHighScores display 16 260 254 font
+		renderHighScores display (16, 260) 254 font
 			(Color 0xCC 0xCC 0xCC) highScores
 
 	when (mode == HighScoreMode) $ liftIO$ do
@@ -126,7 +126,7 @@ renderFrame state@(GameState {..}) = do
 			display (Just$ Rect 16 186 0 0)
 		blitSurface (messages M.! MessageHighScores2) Nothing
 			display (Just$ Rect 16 216 0 0)
-		renderHighScores display 16 260 254 font
+		renderHighScores display (16, 260) 254 font
 			(Color 0xCC 0xCC 0xCC) highScores
 
 	when (mode == PausedMode) $ liftIO$

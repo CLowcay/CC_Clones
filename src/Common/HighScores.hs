@@ -111,9 +111,9 @@ isEditing :: HighScoreState -> Bool
 isEditing (HighScoreState {editing}) = isJust editing
 
 -- render the high scores table
-renderHighScores :: Surface -> Int -> Int -> Int ->
+renderHighScores :: Surface -> (Int, Int) -> Int ->
 	Font -> Color -> HighScoreState -> IO ()
-renderHighScores dst x y w font color state = do
+renderHighScores dst (x, y) w font color state = do
 	let highScores = scores state
 	lineSkip <- fontLineSkip font
 
