@@ -6,7 +6,6 @@ module FRP.Events (
 	sdlKeyPresses,
 	sdlKeys,
 	sdlKeyIsDown,
-	sdlDirection,
 	sdlMousePos,
 	sdlMouseIsDown,
 	sdlMouseClicks,
@@ -17,6 +16,7 @@ module FRP.Events (
 import Control.Applicative
 import Control.Arrow
 import Control.Monad.Loops
+import Data.List
 import Data.Maybe
 import Data.Word
 import FRP.Yampa
@@ -41,7 +41,7 @@ sdlKeyPresses sym ignModifiers = arr$ \e ->
 
 sdlKeys :: [Keysym] -> Bool -> SF (Event SDLEvents) (Event [Keysym])
 sdlKeys syms ignModifiers = arr$ \e ->
-	catMaybeSDLEvents$ fmap.fmap$ if ignModifiers then fi else f
+	catMaybeSDLEvents$ (fmap.fmap) (if ignModifiers then fi else f)$ e
 	where
 		f (KeyDown k) = if k `elem` syms then Just k else Nothing
 		f _ = Nothing

@@ -91,3 +91,37 @@ executable snake
   hs-source-dirs:      src
   default-language:    Haskell2010
 
+executable spaceships
+  main-is:             spaceships.hs
+
+  other-modules:       Paths_ccclones
+
+  build-depends:       base >=4.6 && <4.7,
+                       SDL-mixer >=0.6 && <0.7,
+                       SDL >= 0.6 && <0.7,
+                       SDL-ttf >=0.6 && <0.7,
+                       mtl >=2.2 && <2.3,
+                       containers >=0.5 && <0.6,
+                       transformers >=0.4 && <0.5,
+                       array >=0.4 && <0.5,
+                       filepath >=1.3 && <1.4,
+                       random >=1.0 && <1.1,
+                       directory >=1.2 && <1.3,
+                       Yampa >= 0.9.6 && < 0.10,
+                       monad-loops >= 0.4.2.1 && < 0.5
+
+  default-extensions:  CPP
+  cpp-options:         -DASSET_PREFIX="./assets/"
+
+  if flag(Debug)
+    cpp-options:       -DDEBUG
+
+  if flag(Cheating)
+    cpp-options:       -DCHEATING
+	
+  if os(windows)
+    ld-options:        -mwindows dogfightres.o
+
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+

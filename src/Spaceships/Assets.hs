@@ -1,4 +1,6 @@
-module Dogfight.Assets (
+{-# LANGUAGE RecursiveDo #-}
+
+module Spaceships.Assets (
 	Assets(..), Message(..),
 	loadAssets,
 	bgColor, messageColor
@@ -10,17 +12,19 @@ import Common.Counters
 import Common.Graphics
 import Common.Util
 import Control.Applicative
-import Dogfight.Gamestate
+import Control.Monad
 import Graphics.UI.SDL
 import Graphics.UI.SDL.Mixer
 import Graphics.UI.SDL.TTF
+import qualified Data.Map as M
+import Spaceships.GameState
 
 bgColor = Pixel 0x323232
 messageColor = Color 0 64 255
 
 data Assets = Assets {
 	gfx :: M.Map Tile Sprite,
-	font :: Font
+	font :: Font,
 	getMessage :: Message -> Surface
 }
 
@@ -30,11 +34,14 @@ data Message = MessageIntro1 | MessageIntro2 | MessageHighScores
 -- Load all assets
 loadAssets :: IO Assets
 loadAssets = do
+	putStrLn "la1"
 	gfx <- loadSprites
+	putStrLn "la2"
 	font <- loadFont
+	putStrLn "la3"
 
 	messageData <- 
-		mapM (\(m, s) ->
+		mapM (\(m, s) -> do
 			surface <- renderUTF8Solid font s messageColor
 			return surface
 		) [
@@ -45,16 +52,18 @@ loadAssets = do
 	
 	let
 		messageMap MessageIntro1 = messageData !! 0
-		messageMap MesageIntro2 = messageData !! 1
+		messageMap MessageIntro2 = messageData !! 1
 		messageMap MessageHighScores = messageData !! 2
+
+	putStrLn "la4"
 
 	return Assets {
 		gfx = gfx,
 		font = font,
-		messages = messageMap
+		getMessage = messageMap
 	}
 
-loadSprites :: IO (M.Map Tile Animation)
+loadSprites :: IO (M.Map Tile Sprite)
 loadSprites = do
 	sheet1 <- loadBMP$ getAssetPath "gfx/hideandseek.bmp"
 	let sheet1Sprite = makeSprite sheet1 (16, 16)
@@ -65,38 +74,39 @@ loadSprites = do
 	digits <- loadBMP$ getAssetPath "gfx/Digits.bmp"
 
 	forM_ [paused, gameOver, panel, digits]$ \surface ->
-		setColorKey surface [SrcColorKey] (Pixel 0x00FF00FF))
+		setColorKey surface [SrcColorKey] (Pixel 0x00FF00FF)
 
-	let
-		bg = makeBackground (spriteFor BoxTile)
+	rec
+		bg <- makeBackground (spriteFor BoxTile)
 			(spriteFor FrameH) (spriteFor FrameV)
-		frameV = makeFrameV$ spriteFor BoxTile
-		frameH = makeFrameH$ spriteFor BoxTile
+		frameV <- makeVFrame$ spriteFor BoxTile
+		frameH <- makeHFrame$ spriteFor BoxTile
 
-		spriteFor Background = makeSprite bg (520, 546) (0, 0)
-		spriteFor FrameV = makeSprite frameV (26, 546) (0, 0)
-		spriteFor FrameH = makeSprite frameH (494, 26) (0, 0)
-		spriteFor Digits = makeSprite digits (20, 180) (0, 0) 
-		spriteFor Paused = makeSprite paused (234, 160) (0, 0) 
-		spriteFor GameOverTile = makeSprite gameOver (200, 64) (0, 0) 
-		spriteFor SidePanel = makeSprite panel (208, 546) (0, 0) 
-		spriteFor BoxTile = makeSprite boxTile (26, 26) (0, 0)
-		spriteFor PlayerR = sheet1Sprite (0, 0)
-		spriteFor PlayerD = sheet1Sprite (26, 0)
-		spriteFor PlayerL = sheet1Sprite (52, 0)
-		spriteFor PlayerU = sheet1Sprite (78, 0)
-		spriteFor AiR = sheet1Sprite (0, 26)
-		spriteFor AiD = sheet1Sprite (26, 26)
-		spriteFor AiL = sheet1Sprite (52, 26)
-		spriteFor AiU = sheet1Sprite (78, 26)
-		spriteFor EngineR = sheet1Sprite (0, 78)
-		spriteFor EngineD = sheet1Sprite (26, 78)
-		spriteFor EngineL = sheet1Sprite (52, 78)
-		spriteFor EngineU = sheet1Sprite (78, 78)
-		spriteFor LaserR = sheet1Sprite (0, 52)
-		spriteFor LaserD = sheet1Sprite (26, 52)
-		spriteFor LaserL = sheet1Sprite (52, 52)
-		spriteFor LaserU = sheet1Sprite (78, 52)
+		let
+			spriteFor Background = makeSprite bg (520, 546) (0, 0)
+			spriteFor FrameV = makeSprite frameV (26, 546) (0, 0)
+			spriteFor FrameH = makeSprite frameH (494, 26) (0, 0)
+			spriteFor Digits = makeSprite digits (20, 180) (0, 0) 
+			spriteFor Paused = makeSprite paused (234, 160) (0, 0) 
+			spriteFor GameOverTile = makeSprite gameOver (200, 64) (0, 0) 
+			spriteFor SidePanel = makeSprite panel (208, 546) (0, 0) 
+			spriteFor BoxTile = makeSprite boxTile (26, 26) (0, 0)
+			spriteFor PlayerR = sheet1Sprite (0, 0)
+			spriteFor PlayerD = sheet1Sprite (26, 0)
+			spriteFor PlayerL = sheet1Sprite (52, 0)
+			spriteFor PlayerU = sheet1Sprite (78, 0)
+			spriteFor AiR = sheet1Sprite (0, 26)
+			spriteFor AiD = sheet1Sprite (26, 26)
+			spriteFor AiL = sheet1Sprite (52, 26)
+			spriteFor AiU = sheet1Sprite (78, 26)
+			spriteFor EngineR = sheet1Sprite (0, 78)
+			spriteFor EngineD = sheet1Sprite (26, 78)
+			spriteFor EngineL = sheet1Sprite (52, 78)
+			spriteFor EngineU = sheet1Sprite (78, 78)
+			spriteFor LaserR = sheet1Sprite (0, 52)
+			spriteFor LaserD = sheet1Sprite (26, 52)
+			spriteFor LaserL = sheet1Sprite (52, 52)
+			spriteFor LaserU = sheet1Sprite (78, 52)
 
 	return$ M.fromList$ map (\tile ->
 		(tile, spriteFor tile)) allTiles
@@ -123,7 +133,7 @@ makeHFrame boxSprite = do
 	
 	return surface
 
-	where hBorderPos 0 n = ((n - 1) * 26, 0)
+	where hBorderPos n = ((n - 1) * 26, 0)
 
 makeBackground :: Sprite -> Sprite -> Sprite -> IO Surface
 makeBackground boxSprite hBorder vBorder = do
@@ -135,12 +145,12 @@ makeBackground boxSprite hBorder vBorder = do
 	renderSprite surface 0 (26, 0) hBorder
 	renderSprite surface 0 (26, 520) hBorder
 
-	forM_ (boxPos <$> [1..8] <*> [1..8]))$ \pos -> do
+	forM_ (boxPos <$> [1..8] <*> [1..8])$ \pos -> do
 		renderSprite surface 0 pos boxSprite
 	
 	return surface
 
-	where boxPos (n, m) = (n * 52, m * 52)
+	where boxPos n m = (n * 52, m * 52)
 
 loadFont :: IO Font
 loadFont = openFont

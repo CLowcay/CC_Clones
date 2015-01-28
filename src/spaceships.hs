@@ -16,23 +16,29 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 -}
 
+{-# LANGUAGE Arrows #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Main where
 
 import Common.Counters
+import Common.Graphics
 import Common.HighScores
 import Control.Applicative
 import Control.Monad
-import Dogfight.Assets
-import Dogfight.GameState
-import Dogfight.Render
+import Control.Monad.Reader (runReaderT)
+import Data.IORef
 import FRP.Events
 import FRP.Yampa
 import Graphics.UI.SDL hiding (Event, NoEvent)
+import Graphics.UI.SDL.Keysym
 import Graphics.UI.SDL.Time
 import Graphics.UI.SDL.TTF
+import qualified Data.Map as M
 import qualified Graphics.UI.SDL as SDL
+import Spaceships.Assets
+import Spaceships.GameState
+import Spaceships.Render
 
 windowCaption :: String
 windowCaption = "Spaceships!"
@@ -43,9 +49,13 @@ main = do
 	initSDL
 	setCaption windowCaption windowCaption
 
+	putStrLn "Bp2"
 	assets@(Assets{..}) <- loadAssets
+	putStrLn "Bp3"
 	gs <- initGlobalState$ gfx M.! Digits
+	putStrLn "Bp4"
 	time <- newIORef =<< fromIntegral <$> getTicks
+	putStrLn "Bp5"
 
 	reactimate
 		(Event <$> getSDLEvents)
@@ -53,8 +63,9 @@ main = do
 		(handleOutput assets)
 		(sfMain gs)
 
+	putStrLn "Bp6"
 
-	closeAudio
+	--closeAudio
 	Graphics.UI.SDL.quit
 
 -- Library initialisation
@@ -65,21 +76,24 @@ initSDL = do
 	Graphics.UI.SDL.TTF.init
 	return ()
 
-getInput :: IORef Int -> Bool -> IO (DTime, Maybe SDLEvents)
+getInput :: IORef Int -> Bool -> IO (DTime, Maybe (Event SDLEvents))
 getInput time canBlock = do
-	t0 <- readIORef time
+	--t0 <- readIORef time
 	t1 <- fromIntegral <$> getTicks
-	writeIORef time t1
+	--writeIORef time t1
 
-	let dt = t1 - t0
+	--let dt = t1 - t0
+
+	putStrLn "BP1"
 
 	sdlevents <- getSDLEvents
 	let events = if null sdlevents then NoEvent else Event sdlevents
 
-	return ((fromIntegral dt) / 1000, Just events)
+	--return ((fromIntegral dt) / 1000, Just events)
+	return (1 / 60, Just events)
 
-handleOutput :: Assets -> Bool -> GameOutput -> IO Bool
-handleOutput assets hasChanged go = do
+handleOutput :: Assets -> Bool -> (GameOutput, Bool) -> IO Bool
+handleOutput assets hasChanged (go, quitNow) = do
 	case go of
 		HighScore _ _ (Event EditingStart) -> startEditing
 		HighScore _ hs (Event EditingStop) -> endEditing hs
@@ -87,14 +101,15 @@ handleOutput assets hasChanged go = do
 	
 	runReaderT (renderOutput go) assets
 
+	surface <- getVideoSurface
 	SDL.flip surface
-	return False
+	return$ not quitNow
 
-initGlobalState :: Sprite -> IO ()
+initGlobalState :: Sprite -> IO GlobalState
 initGlobalState digits = do
-	hs <- loadHighScoreTable spaceships
+	hs <- loadHighScoreTable "spaceships"
 	let scoreC = initCounter digits 4
-	let levelC = initCounter level 2
+	let levelC = initCounter digits 2
 	return$ GlobalState {
 		gs_score = 0,
 		gs_level = 1,
@@ -103,10 +118,10 @@ initGlobalState digits = do
 		gs_highScores = hs
 	}
 
-sfMain :: GlobalState -> SF SDLEvents (GameOutput, Bool)
+sfMain :: GlobalState -> SF (Event SDLEvents) (GameOutput, Bool)
 sfMain gs = proc e -> do
 	quitEvents <- sdlQuitEvents -< e
-	escEvents <- sdlKeyPresses (mkKey SDLK_ESC) True -< e
+	escEvents <- sdlKeyPresses (mkKey SDLK_ESCAPE) True -< e
 
 	out <- introMode gs -< e
 

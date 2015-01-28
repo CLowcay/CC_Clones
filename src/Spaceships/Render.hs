@@ -1,15 +1,19 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Dogfight.Render (
+module Spaceships.Render (
 	renderOutput
 ) where
 
+import Common.Counters
+import Common.Graphics
+import Common.HighScores
 import Control.Monad.Reader
-import Dogfight.Assets
-import Dogfight.Gamestate
+import FRP.Yampa.Vector2
 import Graphics.UI.SDL hiding (Event, NoEvent)
 import qualified Data.Map as M
 import qualified Graphics.UI.SDL as SDL
+import Spaceships.Assets
+import Spaceships.GameState
 
 renderOutput :: GameOutput -> ReaderT Assets IO ()
 renderOutput (Intro (GlobalState {..})) = do
@@ -18,9 +22,9 @@ renderOutput (Intro (GlobalState {..})) = do
 		dst <- getVideoSurface
 
 		fillRect dst Nothing bgColor
-		renderSprite dst 0 (0, 0) vBorder
-		renderSprite dst 0 (26, 0) hBorder
-		renderSprite dst 0 (26, 520) hBorder
+		renderSprite dst 0 (0, 0)$ gfx M.! FrameV
+		renderSprite dst 0 (26, 0)$ gfx M.! FrameH
+		renderSprite dst 0 (26, 520)$ gfx M.! FrameH
 
 		blitSurface (getMessage MessageIntro1) Nothing dst$ Just$ Rect 30 30 0 0
 		blitSurface (getMessage MessageIntro2) Nothing dst$ Just$ Rect 30 60 0 0
@@ -34,9 +38,9 @@ renderOutput (GameOver (GlobalState {..})) = do
 		dst <- getVideoSurface
 
 		fillRect dst Nothing bgColor
-		renderSprite dst 0 (0, 0) vBorder
-		renderSprite dst 0 (26, 0) hBorder
-		renderSprite dst 0 (26, 520) hBorder
+		renderSprite dst 0 (0, 0)$ gfx M.! FrameV
+		renderSprite dst 0 (26, 0)$ gfx M.! FrameH
+		renderSprite dst 0 (26, 520)$ gfx M.! FrameH
 
 		renderSprite dst 0 ((494 + 200) `div` 2, (546 + 64) `div` 2)$
 			gfx M.! GameOverTile
@@ -44,7 +48,10 @@ renderOutput (GameOver (GlobalState {..})) = do
 	renderSidePanel (gs_levelC, gs_scoreC)
 
 renderOutput (HighScore (GlobalState {..}) hs _) = do
-	liftIO$ renderHighScores dst (30, 90) (494 - 30 * 2) font messageColor hs
+	Assets {..} <- ask
+	liftIO$ do
+		dst <- getVideoSurface
+		renderHighScores dst (30, 90) (494 - 30 * 2) font messageColor hs
 	renderSidePanel (gs_levelC, gs_scoreC)
 
 renderOutput (Playing (GameRound {..})) = do
