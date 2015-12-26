@@ -49,13 +49,9 @@ main = do
 	initSDL
 	setCaption windowCaption windowCaption
 
-	putStrLn "Bp2"
 	assets@(Assets{..}) <- loadAssets
-	putStrLn "Bp3"
 	gs <- initGlobalState$ gfx M.! Digits
-	putStrLn "Bp4"
 	time <- newIORef =<< fromIntegral <$> getTicks
-	putStrLn "Bp5"
 
 	reactimate
 		(Event <$> getSDLEvents)
@@ -63,9 +59,6 @@ main = do
 		(handleOutput assets)
 		(sfMain gs)
 
-	putStrLn "Bp6"
-
-	--closeAudio
 	Graphics.UI.SDL.quit
 
 -- Library initialisation
@@ -78,18 +71,16 @@ initSDL = do
 
 getInput :: IORef Int -> Bool -> IO (DTime, Maybe (Event SDLEvents))
 getInput time canBlock = do
-	--t0 <- readIORef time
+	t0 <- readIORef time
 	t1 <- fromIntegral <$> getTicks
-	--writeIORef time t1
+	writeIORef time t1
 
-	--let dt = t1 - t0
-
-	putStrLn "BP1"
+	let dt = t1 - t0
 
 	sdlevents <- getSDLEvents
 	let events = if null sdlevents then NoEvent else Event sdlevents
 
-	--return ((fromIntegral dt) / 1000, Just events)
+	return ((fromIntegral dt) / 1000, Just events)
 	return (1 / 60, Just events)
 
 handleOutput :: Assets -> Bool -> (GameOutput, Bool) -> IO Bool
@@ -103,7 +94,7 @@ handleOutput assets hasChanged (go, quitNow) = do
 
 	surface <- getVideoSurface
 	SDL.flip surface
-	return$ not quitNow
+	return quitNow
 
 initGlobalState :: Sprite -> IO GlobalState
 initGlobalState digits = do

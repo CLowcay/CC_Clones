@@ -34,11 +34,8 @@ data Message = MessageIntro1 | MessageIntro2 | MessageHighScores
 -- Load all assets
 loadAssets :: IO Assets
 loadAssets = do
-	putStrLn "la1"
 	gfx <- loadSprites
-	putStrLn "la2"
 	font <- loadFont
-	putStrLn "la3"
 
 	messageData <- 
 		mapM (\(m, s) -> do
@@ -54,8 +51,6 @@ loadAssets = do
 		messageMap MessageIntro1 = messageData !! 0
 		messageMap MessageIntro2 = messageData !! 1
 		messageMap MessageHighScores = messageData !! 2
-
-	putStrLn "la4"
 
 	return Assets {
 		gfx = gfx,
@@ -76,37 +71,39 @@ loadSprites = do
 	forM_ [paused, gameOver, panel, digits]$ \surface ->
 		setColorKey surface [SrcColorKey] (Pixel 0x00FF00FF)
 
-	rec
-		bg <- makeBackground (spriteFor BoxTile)
-			(spriteFor FrameH) (spriteFor FrameV)
-		frameV <- makeVFrame$ spriteFor BoxTile
-		frameH <- makeHFrame$ spriteFor BoxTile
+	let sbox = makeSprite boxTile (26, 26) (0, 0)
+	frameV <- makeVFrame sbox
+	frameH <- makeHFrame sbox
+	let sFrameH = makeSprite frameV (26, 546) (0, 0)
+	let sFrameV = makeSprite frameH (494, 26) (0, 0)
 
-		let
-			spriteFor Background = makeSprite bg (520, 546) (0, 0)
-			spriteFor FrameV = makeSprite frameV (26, 546) (0, 0)
-			spriteFor FrameH = makeSprite frameH (494, 26) (0, 0)
-			spriteFor Digits = makeSprite digits (20, 180) (0, 0) 
-			spriteFor Paused = makeSprite paused (234, 160) (0, 0) 
-			spriteFor GameOverTile = makeSprite gameOver (200, 64) (0, 0) 
-			spriteFor SidePanel = makeSprite panel (208, 546) (0, 0) 
-			spriteFor BoxTile = makeSprite boxTile (26, 26) (0, 0)
-			spriteFor PlayerR = sheet1Sprite (0, 0)
-			spriteFor PlayerD = sheet1Sprite (26, 0)
-			spriteFor PlayerL = sheet1Sprite (52, 0)
-			spriteFor PlayerU = sheet1Sprite (78, 0)
-			spriteFor AiR = sheet1Sprite (0, 26)
-			spriteFor AiD = sheet1Sprite (26, 26)
-			spriteFor AiL = sheet1Sprite (52, 26)
-			spriteFor AiU = sheet1Sprite (78, 26)
-			spriteFor EngineR = sheet1Sprite (0, 78)
-			spriteFor EngineD = sheet1Sprite (26, 78)
-			spriteFor EngineL = sheet1Sprite (52, 78)
-			spriteFor EngineU = sheet1Sprite (78, 78)
-			spriteFor LaserR = sheet1Sprite (0, 52)
-			spriteFor LaserD = sheet1Sprite (26, 52)
-			spriteFor LaserL = sheet1Sprite (52, 52)
-			spriteFor LaserU = sheet1Sprite (78, 52)
+	bg <- makeBackground sbox sFrameH sFrameV
+
+	let
+		spriteFor Background = makeSprite bg (520, 546) (0, 0)
+		spriteFor FrameV = sFrameV
+		spriteFor FrameH = sFrameH
+		spriteFor Digits = makeSprite digits (20, 180) (0, 0) 
+		spriteFor Paused = makeSprite paused (234, 160) (0, 0) 
+		spriteFor GameOverTile = makeSprite gameOver (200, 64) (0, 0) 
+		spriteFor SidePanel = makeSprite panel (208, 546) (0, 0) 
+		spriteFor BoxTile = makeSprite boxTile (26, 26) (0, 0)
+		spriteFor PlayerR = sheet1Sprite (0, 0)
+		spriteFor PlayerD = sheet1Sprite (26, 0)
+		spriteFor PlayerL = sheet1Sprite (52, 0)
+		spriteFor PlayerU = sheet1Sprite (78, 0)
+		spriteFor AiR = sheet1Sprite (0, 26)
+		spriteFor AiD = sheet1Sprite (26, 26)
+		spriteFor AiL = sheet1Sprite (52, 26)
+		spriteFor AiU = sheet1Sprite (78, 26)
+		spriteFor EngineR = sheet1Sprite (0, 78)
+		spriteFor EngineD = sheet1Sprite (26, 78)
+		spriteFor EngineL = sheet1Sprite (52, 78)
+		spriteFor EngineU = sheet1Sprite (78, 78)
+		spriteFor LaserR = sheet1Sprite (0, 52)
+		spriteFor LaserD = sheet1Sprite (26, 52)
+		spriteFor LaserL = sheet1Sprite (52, 52)
+		spriteFor LaserU = sheet1Sprite (78, 52)
 
 	return$ M.fromList$ map (\tile ->
 		(tile, spriteFor tile)) allTiles
