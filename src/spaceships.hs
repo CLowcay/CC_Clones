@@ -99,7 +99,7 @@ handleOutput assets hasChanged (go, quitNow) = do
 initGlobalState :: Sprite -> IO GlobalState
 initGlobalState digits = do
 	hs <- loadHighScoreTable "spaceships"
-	let scoreC = initCounter digits 4
+	let scoreC = initCounter digits 5
 	let levelC = initCounter digits 2
 	return$ GlobalState {
 		gs_score = 0,

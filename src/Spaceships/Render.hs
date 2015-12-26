@@ -110,8 +110,8 @@ renderSidePanel :: (CounterState, CounterState) -> ReaderT Assets IO ()
 renderSidePanel (levelC, scoreC) = do
 	Assets {..} <- ask
 	liftIO$ do
-		renderCounter (31, 212) levelC
-		renderCounter (77, 212) scoreC
+		renderCounter (520+31, 212) levelC
+		renderCounter (520+77, 212) scoreC
 		dst <- getVideoSurface
 		renderSprite dst 0 (520, 0)$ gfx M.! SidePanel
 

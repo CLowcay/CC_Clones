@@ -74,13 +74,13 @@ loadSprites = do
 	let sbox = makeSprite boxTile (26, 26) (0, 0)
 	frameV <- makeVFrame sbox
 	frameH <- makeHFrame sbox
-	let sFrameH = makeSprite frameV (26, 546) (0, 0)
-	let sFrameV = makeSprite frameH (494, 26) (0, 0)
+	let sFrameV = makeSprite frameV (26, 546) (0, 0)
+	let sFrameH = makeSprite frameH (494, 26) (0, 0)
 
 	bg <- makeBackground sbox sFrameH sFrameV
 
 	let
-		spriteFor Background = makeSprite bg (520, 546) (0, 0)
+		spriteFor Background = makeSprite bg (572, 546) (0, 0)
 		spriteFor FrameV = sFrameV
 		spriteFor FrameH = sFrameH
 		spriteFor Digits = makeSprite digits (20, 180) (0, 0) 
@@ -134,7 +134,7 @@ makeHFrame boxSprite = do
 
 makeBackground :: Sprite -> Sprite -> Sprite -> IO Surface
 makeBackground boxSprite hBorder vBorder = do
-	surface <- createRGBSurface [HWSurface] 520 546 32
+	surface <- createRGBSurface [HWSurface] 572 598 32
 		0x000000FF 0x0000FF00 0x00FF0000 0xFF000000 >>= displayFormat
 
 	fillRect surface Nothing bgColor
@@ -142,7 +142,7 @@ makeBackground boxSprite hBorder vBorder = do
 	renderSprite surface 0 (26, 0) hBorder
 	renderSprite surface 0 (26, 520) hBorder
 
-	forM_ (boxPos <$> [1..8] <*> [1..8])$ \pos -> do
+	forM_ (boxPos <$> [1..9] <*> [1..9])$ \pos -> do
 		renderSprite surface 0 pos boxSprite
 	
 	return surface
