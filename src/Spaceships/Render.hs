@@ -66,9 +66,9 @@ renderOutput (Playing (GameRound {..})) = do
 	renderSidePanel (gr_levelC, gr_scoreC)
 
 renderSpaceship  :: Spaceship -> Bool -> ReaderT Assets IO ()
-renderSpaceship (Spaceship pos dir) isPlayer = do
+renderSpaceship (Spaceship p lane dir) isPlayer = do
 	Assets {..} <- ask
-	let (x', y') = vector2XY pos
+	let (x', y') = laneToPos lane p
 	let (x, y) = (floor x', floor y')
 	liftIO$ do
 		dst <- getVideoSurface

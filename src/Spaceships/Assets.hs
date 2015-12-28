@@ -61,7 +61,7 @@ loadAssets = do
 loadSprites :: IO (M.Map Tile Sprite)
 loadSprites = do
 	sheet1 <- loadBMP$ getAssetPath "gfx/hideandseek.bmp"
-	let sheet1Sprite = makeSprite sheet1 (16, 16)
+	let sheet1Sprite = makeSprite sheet1 (26, 26)
 	boxTile <- loadBMP$ getAssetPath "gfx/blueblock.bmp"
 	panel <- loadBMP$ getAssetPath "gfx/spaceshipsPanel.bmp"
 	paused <- loadBMP$ getAssetPath "gfx/Paused.bmp"
@@ -89,21 +89,21 @@ loadSprites = do
 		spriteFor SidePanel = makeSprite panel (208, 546) (0, 0) 
 		spriteFor BoxTile = makeSprite boxTile (26, 26) (0, 0)
 		spriteFor PlayerR = sheet1Sprite (0, 0)
-		spriteFor PlayerD = sheet1Sprite (26, 0)
-		spriteFor PlayerL = sheet1Sprite (52, 0)
-		spriteFor PlayerU = sheet1Sprite (78, 0)
-		spriteFor AiR = sheet1Sprite (0, 26)
-		spriteFor AiD = sheet1Sprite (26, 26)
-		spriteFor AiL = sheet1Sprite (52, 26)
-		spriteFor AiU = sheet1Sprite (78, 26)
-		spriteFor EngineR = sheet1Sprite (0, 78)
-		spriteFor EngineD = sheet1Sprite (26, 78)
-		spriteFor EngineL = sheet1Sprite (52, 78)
-		spriteFor EngineU = sheet1Sprite (78, 78)
-		spriteFor LaserR = sheet1Sprite (0, 52)
-		spriteFor LaserD = sheet1Sprite (26, 52)
-		spriteFor LaserL = sheet1Sprite (52, 52)
-		spriteFor LaserU = sheet1Sprite (78, 52)
+		spriteFor PlayerD = sheet1Sprite (1, 0)
+		spriteFor PlayerL = sheet1Sprite (2, 0)
+		spriteFor PlayerU = sheet1Sprite (3, 0)
+		spriteFor AiR = sheet1Sprite (0, 1)
+		spriteFor AiD = sheet1Sprite (1, 1)
+		spriteFor AiL = sheet1Sprite (2, 1)
+		spriteFor AiU = sheet1Sprite (3, 1)
+		spriteFor EngineR = sheet1Sprite (0, 3)
+		spriteFor EngineD = sheet1Sprite (1, 3)
+		spriteFor EngineL = sheet1Sprite (2, 3)
+		spriteFor EngineU = sheet1Sprite (3, 3)
+		spriteFor LaserR = sheet1Sprite (0, 2)
+		spriteFor LaserD = sheet1Sprite (1, 2)
+		spriteFor LaserL = sheet1Sprite (2, 2)
+		spriteFor LaserU = sheet1Sprite (3, 2)
 
 	return$ M.fromList$ map (\tile ->
 		(tile, spriteFor tile)) allTiles

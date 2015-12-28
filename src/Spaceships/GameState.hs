@@ -7,6 +7,7 @@ module Spaceships.GameState (
 	GameOutput(..), HighScoreEditing(..),
 	GameRound(..), Spaceship(..), Laser(..),
 	Tile(..), allTiles,
+	laneToPos,
 	introMode
 ) where
 
@@ -24,8 +25,26 @@ import qualified Graphics.UI.SDL as SDL
 
 -- Exposed types
 
-data Direction = DLeft | DRight | DUp | DDown
-	deriving (Enum, Eq, Show)
+data Direction = DLeft | DUp | DDown | DRight deriving (Eq, Ord, Show)
+
+nLanes = 10
+laneMax = ((nLanes + nLanes - 1) * 26) - 26 - 1
+data Lane = HLane Int | VLane Int deriving (Eq, Ord, Show)
+
+laneToPos :: Lane -> Float -> (Float, Float)
+laneToPos (HLane n) t = (26 + t, fromIntegral$ (n * 2 * 26) + 26)
+laneToPos (VLane n) t = (fromIntegral$ (n * 2 * 26) + 26, 26 + t)
+
+laneDirection :: Lane -> Float -> Direction
+laneDirection (HLane _) t
+	| t < 0 = DLeft
+	| otherwise = DRight
+laneDirection (VLane _) t
+	| t < 0 = DUp
+	| otherwise = DDown
+
+laneNumbertoPos :: Int -> Float
+laneNumbertoPos n = (fromIntegral n) * 26 * 2
 
 data GameOutput =
 		Intro GlobalState |
@@ -46,11 +65,9 @@ data GlobalState = GlobalState {
 	gs_highScores :: HighScoreState
 } deriving Show
 
-data Spaceship = Spaceship (Vector2 Float) Direction deriving Show
-initSpaceship = Spaceship
-	(vector2 (10 * (fromIntegral tileSize)) (10 * (fromIntegral tileSize))) DLeft
-initEnemy n = Spaceship
-	(vector2 ((fromIntegral n) * 2 * (fromIntegral tileSize)) 0) DDown
+data Spaceship = Spaceship Float Lane Direction deriving Show
+initSpaceship = Spaceship laneMax (HLane 9) DLeft
+initEnemy n = Spaceship 0 (VLane n) DDown
 
 data Laser = Laser (Vector2 Float) Direction deriving Show
 
@@ -119,7 +136,7 @@ doHighScore gs = loopPre (gs_highScores gs)$ proc (e, hs0) -> do
 doGameRound :: GlobalState ->
 	SF (Event SDLEvents) (GameOutput, Event (RoundOutcome, GlobalState))
 doGameRound gs = proc e -> do
-	ship <- spaceship initSpaceship 1.0 <<< directionInput -< e
+	ship <- spaceship 4.0 initSpaceship <<< directionInput -< e
 	returnA -< (Playing$ GameRound {
 			gr_player = ship,
 			gr_enemies = [],
@@ -128,57 +145,60 @@ doGameRound gs = proc e -> do
 			gr_levelC = gs_levelC gs
 		}, NoEvent)
 
-spaceship :: Spaceship -> Float -> SF (Event Direction) Spaceship
-spaceship (Spaceship p0 d0) speed = loopPre d0$ proc (e, d) -> do
-	nextDirection <- hold d0 -< e
-	rec
-		v <- spaceshipV (directionToV d0) -< (cell, nextDirection)
-		p <- integral -< speed *^ v 
-		cell <- boundaryCrossing p0 -< p
-	let d' = vToDirection d v
-	returnA -< (Spaceship p d', d')
+spaceship :: Float -> Spaceship -> SF (Event Direction) Spaceship
+spaceship speed0 s0 = switch (spaceshipLane speed0 s0) (spaceship speed0)
 
-spaceshipV :: Vector2 Float -> SF (Event (Int, Int), Direction) (Vector2 Float)
-spaceshipV v0 =
-	sscan (\v (cell, direction) -> event v (updateDirection v direction) cell) v0
+spaceshipLane :: Float -> Spaceship -> SF (Event Direction) (Spaceship, Event Spaceship)
+spaceshipLane speed0 (Spaceship p0 lane0 d0) = proc e -> do
+	-- TODO: set the initial direction properly
+	nextDirection <- hold d0 -< e
+	speed <- laneSpeed lane0 speed0 d0 -< e
+	rec
+		p <- iPre p0 <<< imIntegral p0 -< rspeed
+		let rspeed =
+			if p <= 0 && speed < 0 || p >= laneMax && speed > 0 then 0 else speed
+
+	crossing <- boundaryCrossing p0 -< p
+	let laneChange = case crossing of
+		Event n -> case lane0 of
+			(HLane n0) -> case nextDirection of
+				DUp -> Event$ Spaceship (laneNumbertoPos n0) (VLane n) DUp
+				DDown -> Event$ Spaceship (laneNumbertoPos n0) (VLane n) DDown
+				_ -> NoEvent
+			(VLane n0) -> case nextDirection of
+				DLeft -> Event$ Spaceship (laneNumbertoPos n0) (HLane n) DLeft
+				DRight -> Event$ Spaceship (laneNumbertoPos n0) (HLane n) DRight
+				_ -> NoEvent
+		NoEvent -> NoEvent
+	
+	returnA -< (Spaceship p lane0 (laneDirection lane0 speed), laneChange)
+
+laneSpeed :: Lane -> Float -> Direction -> SF (Event Direction) Float
+laneSpeed lane speed0 d0 = hold r0 <<< (arr speedEvents)
 	where
-		inRange x = x >= 0 && x < gridSize
-		updateDirection v direction (x, y) =
-			if inRange x && inRange y
-				then maybe v id$ directionToVM (odd x) (odd y) direction 
-				else zeroVector
+		r0 = if d0 == DLeft || d0 == DUp then (0 - speed0) else speed0
+		speedEvents =
+			case lane of
+				HLane _ -> mapFilterE (\d -> case d of
+					DLeft -> Just (0 - speed0)
+					DRight -> Just speed0
+					_ -> Nothing)
+				VLane _ -> mapFilterE (\d -> case d of
+					DUp -> Just (0 - speed0)
+					DDown -> Just speed0
+					_ -> Nothing)
 
 -- generate an event when we enter a new grid cell
-boundaryCrossing :: Vector2 Float -> SF (Vector2 Float) (Event (Int, Int))
+boundaryCrossing :: Float -> SF Float (Event Int)
 boundaryCrossing p0 = loopPre p0$ proc (p', p) -> do
-	let g0 = toGridCell p
-	let g1 = toGridCell p'
+	let (g0, g1)  = if p' > p
+		then (floor$ p / 52, floor$ p' / 52)
+		else if p' < p
+			then (ceiling$ p / 52, ceiling$ p' / 52)
+			-- hack for the case where the spaceship is stalled
+			else (-1, floor$ (p + 1) / 52)
+
 	returnA -< (if g0 /= g1 then Event g1 else NoEvent, p')
-	where toGridCell v = let (x, y) = vector2XY v in (floor x, floor y)
-
-directionToV :: Direction -> Vector2 Float
-directionToV DUp = vector2 0 (-1)
-directionToV DDown = vector2 0 1
-directionToV DLeft = vector2 (-1) 0
-directionToV DRight = vector2 0 1
-
-type XOdd = Bool
-type YOdd = Bool
-
-directionToVM :: XOdd -> YOdd -> Direction -> Maybe (Vector2 Float)
-directionToVM False _ DUp = Just$ vector2 0 (-1)
-directionToVM False _ DDown = Just$ vector2 0 1
-directionToVM _ False DLeft = Just$ vector2 (-1) 0
-directionToVM _ False DRight = Just$ vector2 0 1
-directionToVM _ _ _ = Nothing
-
-vToDirection :: Direction -> Vector2 Float -> Direction
-vToDirection d0 v = let (x, y) = vector2XY v in
-	if x < 0 then DLeft
-	else if x > 0 then DRight
-	else if y < 0 then DUp
-	else if y > 0 then DDown
-	else d0
 
 directionInput :: SF (Event SDLEvents) (Event Direction)
 directionInput = proc e -> do
