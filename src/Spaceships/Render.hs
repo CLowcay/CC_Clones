@@ -59,26 +59,25 @@ renderOutput (Playing (GameRound {..})) = do
 
 	renderBackground
 
-	renderSpaceship gr_player True
-	forM gr_enemies$ \enemy -> renderSpaceship enemy False
-	forM gr_lasers$ \laser -> renderLaser laser
+	forM gr_objects$ \(GameObject kind (lane@(LaneControl _ _ dir))) -> do
+		let pos = lanePosition lane
+		case kind of
+			Player -> renderSpaceship pos dir True
+			Enemy -> renderSpaceship pos dir False
+			Laser -> renderLaser pos dir
 
 	renderSidePanel (gr_levelC, gr_scoreC)
 
-renderSpaceship  :: Spaceship -> Bool -> ReaderT Assets IO ()
-renderSpaceship (Spaceship p lane dir) isPlayer = do
+renderSpaceship  :: (Int, Int) -> Direction -> Bool -> ReaderT Assets IO ()
+renderSpaceship (x, y) dir isPlayer = do
 	Assets {..} <- ask
-	let (x', y') = laneToPos lane p
-	let (x, y) = (floor x', floor y')
 	liftIO$ do
 		dst <- getVideoSurface
 		renderSprite dst 0 (x, y)$ gfx M.! (getSpaceshipTile isPlayer dir)
 
-renderLaser :: Laser -> ReaderT Assets IO ()
-renderLaser (Laser pos dir) = do
+renderLaser :: (Int, Int) -> Direction -> ReaderT Assets IO ()
+renderLaser (x, y) dir = do
 	Assets {..} <- ask
-	let (x', y') = vector2XY pos
-	let (x, y) = (floor x', floor y')
 	liftIO$ do
 		dst <- getVideoSurface
 		renderSprite dst 0 (x, y)$ gfx M.! (getLaserTile dir)
