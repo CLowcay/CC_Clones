@@ -5,6 +5,7 @@ module FRP.Events (
 	getSDLEvents,
 	sdlKeyPresses,
 	sdlKeys,
+	sdlAllKeys,
 	sdlKeyIsDown,
 	sdlMousePos,
 	sdlMouseIsDown,
@@ -47,6 +48,12 @@ sdlKeys syms ignModifiers = arr$ \e ->
 		f _ = Nothing
 		fi (KeyDown k) = if isJust$ find (k `kEqIgn`) syms then Just k else Nothing
 		fi _ = Nothing
+
+sdlAllKeys :: SF (Event SDLEvents) (Event [Keysym])
+sdlAllKeys = arr$ \e -> catMaybeSDLEvents$ (fmap.fmap) f$ e
+	where
+		f (KeyDown k) = Just k
+		f _ = Nothing
 
 -- is a key currently pressed
 sdlKeyIsDown :: Keysym -> Bool -> SF (Event SDLEvents) Bool

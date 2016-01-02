@@ -1,5 +1,6 @@
 {-# LANGUAGE Arrows #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TupleSections #-}
 
 module Spaceships.GameState (
 	Direction(..),
@@ -17,6 +18,7 @@ import Common.Events
 import Common.HighScores
 import Control.Applicative
 import Control.Monad.State (execState)
+import Data.List
 import Data.Maybe
 import FRP.Events
 import FRP.Yampa
@@ -49,9 +51,9 @@ data GlobalState = GlobalState {
 	gs_highScores :: HighScoreState
 } deriving Show
 
-data GameObject = GameObject Kind LaneControl deriving Show
-data LaneControl = LaneControl Lane Float Direction deriving Show
-data Kind = Player | Enemy | Laser deriving Show
+data GameObject = GameObject Kind LaneControl deriving (Show, Eq)
+data LaneControl = LaneControl Lane Float Direction deriving (Show, Eq)
+data Kind = Player | Enemy | Laser deriving (Show, Eq)
 
 initSpaceship = GameObject Player (LaneControl (HLane 9) laneMax DLeft)
 initEnemy n = GameObject Enemy (LaneControl (VLane n) 0 DDown)
@@ -77,6 +79,7 @@ tileSize = 26 :: Int
 levelBonus = 0 :: Int
 nLanes = 10 :: Int
 baseSpeed = 10 :: Float
+laserWidth = 10 :: Int -- TODO: check this
 
 laneMax :: Float
 laneMax = fromIntegral$ ((nLanes + nLanes - 1) * tileSize) - tileSize - 1
@@ -88,6 +91,16 @@ lanePosition (LaneControl lane t _) = case lane of
 
 laneNumbertoPos :: Int -> Float
 laneNumbertoPos n = fromIntegral$ n * tileSize * 2
+
+boundingRect :: GameObject -> (Int, Int, Int, Int)
+boundingRect (GameObject Laser (lane@(LaneControl _ _ dir))) =
+	let (x, y) = lanePosition lane in case dir of
+		DLeft ->  (x, y, laserWidth, tileSize)
+		DUp ->    (x, y, tileSize, laserWidth)
+		DDown ->  (x, y + tileSize - laserWidth, tileSize, laserWidth)
+		DRight -> (x + tileSize - laserWidth, y, laserWidth, tileSize)
+boundingRect (GameObject _ lane) =
+	let (x, y) = lanePosition lane in (x, y, tileSize, tileSize)
 
 -- Top level SFs
 -- ----------------------------------------------------------------------------
@@ -139,20 +152,109 @@ doHighScore gs = loopPre (gs_highScores gs)$ proc (e, hs0) -> do
 -- Game SFs
 -- ----------------------------------------------------------------------------
 
+data FireTheLazer = FireTheLazer deriving (Show, Eq)
+data SpaceshipCommand = DirectionCommand Direction | FireCommand deriving (Show, Eq)
+type GameObjectController = SF (Event [SpaceshipCommand], [GameObject]) (GameObject, Event FireTheLazer)
+type GameObjectControllers = SF (Event [SpaceshipCommand], [GameObject]) [(GameObject, Event FireTheLazer)]
+
 doGameRound :: GlobalState ->
 	SF (Event SDLEvents) (GameOutput, Event (RoundOutcome, GlobalState))
 doGameRound gs = proc e -> do
-	ship <- spaceship baseSpeed initSpaceship <<< directionInput -< e
+	objs <- objects initRound <<< spaceshipInput -< e
+
 	returnA -< (Playing$ GameRound {
-			gr_objects = [ship],
+			gr_objects = objs,
 			gr_scoreC = gs_scoreC gs,
 			gr_levelC = gs_levelC gs
 		}, NoEvent)
 
-spaceship :: Float -> GameObject -> SF (Event Direction) GameObject
-spaceship speed0 (GameObject s l0) = switch
+objects :: [GameObject] -> SF (Event [SpaceshipCommand]) [GameObject]
+objects objs0 = proc e -> do
+	rec
+		objs <- (arr$ fmap fst) <<< objectControl objs0 <<< iPre (NoEvent, objs0) -< (e, objs)
+	returnA -< objs
+
+objectControl :: [GameObject] -> GameObjectControllers
+objectControl objs0 = pSwitchB
+	(mkController <$> objs0)
+	gameLogic$ \controllers objs ->
+		(NoEvent, objs) >-- objectControl objs
+	where
+		mkController (obj@(GameObject Player _)) = player baseSpeed obj
+		mkController (obj@(GameObject Enemy _)) = enemy baseSpeed obj
+		mkController (obj@(GameObject Laser _)) = laser (baseSpeed * 1.2) obj
+
+gameLogic :: SF ((Event [SpaceshipCommand], [GameObject]), [(GameObject, Event FireTheLazer)]) (Event [GameObject])
+gameLogic = proc (_, objCmds) -> do
+	let objs = fst <$> objCmds
+	let candidates = case tails objs of
+		[] -> []
+		(xs:tls) -> (objs `zip`) =<< tls
+	let objectCollisions = nub$ foldr (\(x, y) collisions ->
+		if isCollision x y then x:y:collisions else collisions) [] candidates
+	let allCollisions = objectCollisions ++ (filter isLaserOutOfBounds objs)
+	let anyCollisions = not$ null allCollisions
+	let survivors = filter (not.(`elem` allCollisions).fst) objCmds
+	let (withLasers, anyLasers) = foldr
+		(\(obj, e) (rl@(r, _)) -> case e of
+			Event _ -> case fireLaser obj of
+				Just laserBolt -> (r ++ [laserBolt], True)
+				Nothing -> rl
+			NoEvent -> rl
+		) (fst <$> survivors, False) survivors
+	returnA -< if anyLasers || anyCollisions then Event withLasers else NoEvent
+	
+isCollision :: GameObject -> GameObject -> Bool
+-- lasers cannot collide with lasers
+isCollision (GameObject Laser _) (GameObject Laser _) = False
+isCollision a b =
+	let
+		(x1, y1, w1, h1) = boundingRect a
+		(x2, y2, w2, h2) = boundingRect b
+	in x1 + w1 >= x2 && x2 + w2 >= x1 && y1 + h1 >= y2 && y2 + h2 >= y1
+
+isLaserOutOfBounds :: GameObject -> Bool
+isLaserOutOfBounds (GameObject Laser (LaneControl _ p _)) = p <= 0 || p >= laneMax
+isLaserOutOfBounds _ = False
+
+initRound :: [GameObject]
+initRound = initSpaceship : (initEnemy <$> [0..(nLanes - 1)])
+
+fireLaser :: GameObject -> Maybe GameObject
+fireLaser (GameObject _ (LaneControl lane0 p0 d0)) =
+	let p = p0 + (fromIntegral$
+		if d0 == DLeft || d0 == DUp then 0 - tileSize else tileSize)
+	in if p <= 0 || p >= laneMax then Nothing
+		else Just$ GameObject Laser (LaneControl lane0 p d0)
+
+laser :: Float -> GameObject -> GameObjectController
+laser speed0 (GameObject k l0) =
+	(arr$ \(l, _) -> (GameObject k l, NoEvent))
+		<<< laneMotion speed0 l0 <<< never
+
+enemy :: Float -> GameObject -> GameObjectController
+enemy speed0 obj0 = proc (_, objs) -> do
+	obj <- spaceshipMotion speed0 obj0 -< NoEvent
+	returnA -< (obj, NoEvent)
+
+player :: Float -> GameObject -> GameObjectController
+player speed0 obj0 = proc (e, _) -> do
+	obj <- spaceshipMotion speed0 obj0 -<
+		mapFilterE (safeLast.catMaybes.fmap directionCommand) e
+	returnA -< if event False (FireCommand `elem`) e
+		then (obj, Event FireTheLazer)
+		else (obj, NoEvent)
+
+	where
+		directionCommand (DirectionCommand dir) = Just dir
+		directionCommand _ = Nothing
+		safeLast [] = Nothing
+		safeLast xs = Just$ last xs
+
+spaceshipMotion :: Float -> GameObject -> SF (Event Direction) GameObject
+spaceshipMotion speed0 (GameObject s l0) = switch
 	(arr (first (GameObject s)) <<< laneMotion speed0 l0)
-	(\l -> spaceship speed0 (GameObject s l))
+	(\l -> spaceshipMotion speed0 (GameObject s l))
 
 laneMotion :: Float -> LaneControl ->
 	SF (Event Direction) (LaneControl, Event LaneControl)
@@ -198,16 +300,15 @@ boundaryCrossing p0 = loopPre p0$ proc (p', p) -> do
 
 	returnA -< (if g0 /= g1 then Event g1 else NoEvent, p')
 
-directionInput :: SF (Event SDLEvents) (Event Direction)
-directionInput = proc e -> do
-	eKeys <- sdlKeys (mkKey <$> [SDLK_UP, SDLK_DOWN, SDLK_LEFT, SDLK_RIGHT]) True -< e
-	returnA -< keyToDirection.last <$> eKeys
+spaceshipInput :: SF (Event SDLEvents) (Event [SpaceshipCommand])
+spaceshipInput = (arr$ fmap (catMaybes.fmap keyToSpaceshipCommand)) <<< sdlAllKeys
 
-keyToDirection :: Keysym -> Direction
-keyToDirection k = case k of
-	Keysym SDLK_UP _ _ -> DUp
-	Keysym SDLK_DOWN _ _ -> DDown
-	Keysym SDLK_LEFT _ _ -> DLeft
-	Keysym SDLK_RIGHT _ _ -> DRight
-	_ -> error "Direction keys incorrectly filtered"
+keyToSpaceshipCommand :: Keysym -> Maybe SpaceshipCommand
+keyToSpaceshipCommand k = case k of
+	Keysym SDLK_UP _ _ -> Just$ DirectionCommand DUp
+	Keysym SDLK_DOWN _ _ -> Just$ DirectionCommand DDown
+	Keysym SDLK_LEFT _ _ -> Just$ DirectionCommand DLeft
+	Keysym SDLK_RIGHT _ _ -> Just$ DirectionCommand DRight
+	Keysym SDLK_SPACE _ _ -> Just FireCommand
+	_ -> Nothing
 
