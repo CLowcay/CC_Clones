@@ -8,7 +8,7 @@ import Common.Counters
 import Common.Graphics
 import Common.HighScores
 import Control.Monad.Reader
-import FRP.Yampa.Vector2
+import FRP.Yampa.Event
 import Graphics.UI.SDL hiding (Event, NoEvent)
 import qualified Data.Map as M
 import qualified Graphics.UI.SDL as SDL
@@ -47,9 +47,13 @@ renderOutput (GameOver (GlobalState {..})) = do
 
 	renderSidePanel (gs_levelC, gs_scoreC)
 
-renderOutput (HighScore (GlobalState {..}) hs _) = do
+renderOutput (HighScore (GlobalState {..}) hs editingEvent) = do
 	Assets {..} <- ask
 	liftIO$ do
+		case editingEvent of
+			Event EditingStart -> startEditing
+			Event EditingStop -> endEditing hs
+			NoEvent -> return ()
 		dst <- getVideoSurface
 		renderHighScores dst (30, 90) (494 - 30 * 2) font messageColor hs
 	renderSidePanel (gs_levelC, gs_scoreC)

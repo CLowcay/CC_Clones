@@ -26,6 +26,8 @@ import FRP.Yampa.Vector2
 import Graphics.UI.SDL hiding (Event, NoEvent)
 import qualified Graphics.UI.SDL as SDL
 
+import Debug.Trace
+
 -- Exposed types
 -- ----------------------------------------------------------------------------
 
@@ -140,14 +142,18 @@ doGameOver gs = proc e -> do
 
 doHighScore :: GlobalState ->
 	SF (Event SDLEvents) (GameOutput, Event GlobalState)
-doHighScore gs = loopPre (gs_highScores gs)$ proc (e, hs0) -> do
-	let hs1 = execState (handleEvents highScoreEventHandler (event [] id e)) hs0
+doHighScore gs =
+	let hs0 = insertHighScore (gs_score gs) (gs_highScores gs)
+	in loopPre hs0$ proc (e, hs0) -> do
+		let hs1 = execState (handleEvents highScoreEventHandler (event [] id e)) hs0
 
-	eStart <- now EditingStart -< ()
-	let eStop = if not$ isEditing hs1 then Event gs else NoEvent
-	let eEditing = eStart `lMerge` (eStop `tag` EditingStop)
-	
-	returnA -< ((HighScore gs hs1 eEditing, eStop), hs1)
+		eStart <- now EditingStart -< ()
+		let eStop = if not$ isEditing hs1
+			then Event (gs {gs_highScores = hs1})
+			else NoEvent
+		let eEditing = eStart `lMerge` (eStop `tag` EditingStop)
+		
+		returnA -< ((HighScore gs hs1 eEditing, eStop), hs1)
 
 -- Game SFs
 -- ----------------------------------------------------------------------------
@@ -161,12 +167,17 @@ doGameRound :: GlobalState ->
 	SF (Event SDLEvents) (GameOutput, Event (RoundOutcome, GlobalState))
 doGameRound gs = proc e -> do
 	objs <- objects initRound <<< spaceshipInput -< e
-
+	let e =
+		if not.any (\(GameObject p _) -> p == Player)$ objs
+			then Event (RoundDied, gs)
+		else if not.any (\(GameObject p _) -> p == Enemy)$ objs
+			then Event (RoundCompleted, gs)
+		else NoEvent
 	returnA -< (Playing$ GameRound {
 			gr_objects = objs,
 			gr_scoreC = gs_scoreC gs,
 			gr_levelC = gs_levelC gs
-		}, NoEvent)
+		}, e)
 
 objects :: [GameObject] -> SF (Event [SpaceshipCommand]) [GameObject]
 objects objs0 = proc e -> do
