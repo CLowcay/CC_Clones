@@ -118,12 +118,17 @@ renderHighScores dst (x, y) w font color state = do
 	lineSkip <- fontLineSkip font
 
 	forM_ (zip [0..] highScores) $ \(i, (name, score)) -> do
-		nameSurface <- renderUTF8Solid font
-			(name ++ (if isEditing i then "_" else "")) color
-		scoreSurface <- renderUTF8Solid font (show score) color
 		let y' = y + (i * lineSkip)
-		blitSurface nameSurface Nothing
-			dst (Just$ Rect x y' 0 0)
+
+		let pname = name ++ (if isEditing i then "_" else "")
+		mNameSurface <- tryRenderUTF8Solid font pname color
+		case mNameSurface of
+			Just nameSurface -> do
+				blitSurface nameSurface Nothing dst (Just$ Rect x y' 0 0)
+				return ()
+			Nothing -> return ()
+
+		scoreSurface <- renderUTF8Solid font (show score) color
 		let scoreWidth = surfaceGetWidth scoreSurface
 		blitSurface scoreSurface Nothing
 			dst (Just$ Rect (x + w - scoreWidth) y' 0 0)
@@ -189,7 +194,7 @@ highScoreEventHandler (KeyDown sym) = do
 	where
 		safeInit [] = []
 		safeInit xs = Data.List.init xs
-		isValidNameChar char = isAlphaNum char || isSpace char ||
+		isValidNameChar char = isAlphaNum char || char == ' ' ||
 			(isPunctuation char && char /= '=')
 highScoreEventHandler _ = return True
 
