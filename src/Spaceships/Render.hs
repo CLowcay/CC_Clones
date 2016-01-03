@@ -15,8 +15,12 @@ import qualified Graphics.UI.SDL as SDL
 import Spaceships.Assets
 import Spaceships.GameState
 
-renderOutput :: GameOutput -> ReaderT Assets IO ()
-renderOutput (Intro (GlobalState {..})) = do
+renderOutput :: FullGameOutput -> ReaderT Assets IO ()
+renderOutput (FullGameOutput o level score) = do
+	renderOutput0 o
+	renderSidePanel level score
+
+renderOutput0 (Intro (GlobalState {..})) = do
 	Assets {..} <- ask
 	liftIO$ do
 		dst <- getVideoSurface
@@ -26,13 +30,18 @@ renderOutput (Intro (GlobalState {..})) = do
 		renderSprite dst 0 (26, 0)$ gfx M.! FrameH
 		renderSprite dst 0 (26, 520)$ gfx M.! FrameH
 
-		blitSurface (getMessage MessageIntro1) Nothing dst$ Just$ Rect 30 30 0 0
-		blitSurface (getMessage MessageIntro2) Nothing dst$ Just$ Rect 30 60 0 0
-		renderHighScores dst (30, 90) (494 - 30 * 2) font messageColor gs_highScores
+		let
+			m1 = (getMessage MessageIntro1)
+			m2 = (getMessage MessageIntro2)
+			w1 = surfaceGetWidth m1
+			w2 = surfaceGetWidth m2
 
-	renderSidePanel (gs_levelC, gs_scoreC)
+		blitSurface m1 Nothing dst$ Just$ Rect ((494 - w1) `div` 2 + 26) 30 0 0
+		blitSurface m2 Nothing dst$ Just$ Rect ((494 - w2) `div` 2 + 26) 100 0 0
+		renderHighScores dst ((494 - 14 * 26) `div` 2 + 26, 130)
+			(14 * 26) font messageColor gs_highScores
 
-renderOutput (GameOver (GlobalState {..})) = do
+renderOutput0 (GameOver (GlobalState {..})) = do
 	Assets {..} <- ask
 	liftIO$ do
 		dst <- getVideoSurface
@@ -42,35 +51,33 @@ renderOutput (GameOver (GlobalState {..})) = do
 		renderSprite dst 0 (26, 0)$ gfx M.! FrameH
 		renderSprite dst 0 (26, 520)$ gfx M.! FrameH
 
-		renderSprite dst 0 ((494 + 200) `div` 2, (546 + 64) `div` 2)$
+		renderSprite dst 0 ((494 - 200) `div` 2 + 26, (494 - 64) `div` 2 + 26)$
 			gfx M.! GameOverTile
 
-	renderSidePanel (gs_levelC, gs_scoreC)
-
-renderOutput (HighScore (GlobalState {..}) hs editingEvent) = do
+renderOutput0 (HighScore (GlobalState {..}) hs editingEvent) = do
 	Assets {..} <- ask
+	renderBackground
 	liftIO$ do
-		case editingEvent of
-			Event EditingStart -> startEditing
-			Event EditingStop -> endEditing hs
-			NoEvent -> return ()
 		dst <- getVideoSurface
-		renderHighScores dst (30, 90) (494 - 30 * 2) font messageColor hs
-	renderSidePanel (gs_levelC, gs_scoreC)
 
-renderOutput (Playing (GameRound {..})) = do
+		fillRect dst Nothing bgColor
+		renderSprite dst 0 (0, 0)$ gfx M.! FrameV
+		renderSprite dst 0 (26, 0)$ gfx M.! FrameH
+		renderSprite dst 0 (26, 520)$ gfx M.! FrameH
+
+		renderHighScores dst ((494 - 14 * 26) `div` 2 + 26, 130) (14 * 26) font messageColor hs
+
+renderOutput0 (Playing (GameRound {..})) = do
 	Assets {..} <- ask
 
 	renderBackground
 
-	forM gr_objects$ \(GameObject kind (lane@(LaneControl _ _ dir))) -> do
+	forM_ gr_objects$ \(GameObject kind (lane@(LaneControl _ _ dir))) -> do
 		let pos = lanePosition lane
 		case kind of
 			Player -> renderSpaceship pos dir True
 			Enemy -> renderSpaceship pos dir False
 			Laser -> renderLaser pos dir
-
-	renderSidePanel (gr_levelC, gr_scoreC)
 
 renderSpaceship  :: (Int, Int) -> Direction -> Bool -> ReaderT Assets IO ()
 renderSpaceship (x, y) dir isPlayer = do
@@ -109,8 +116,8 @@ renderBackground = do
 		dst <- getVideoSurface
 		renderSprite dst 0 (0, 0)$ gfx M.! Background
 
-renderSidePanel :: (CounterState, CounterState) -> ReaderT Assets IO ()
-renderSidePanel (levelC, scoreC) = do
+renderSidePanel :: CounterState -> CounterState -> ReaderT Assets IO ()
+renderSidePanel levelC scoreC = do
 	Assets {..} <- ask
 	liftIO$ do
 		renderCounter (520+31, 212) levelC

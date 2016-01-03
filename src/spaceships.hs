@@ -50,14 +50,14 @@ main = do
 	setCaption windowCaption windowCaption
 
 	assets@(Assets{..}) <- loadAssets
-	gs <- initGlobalState$ gfx M.! Digits
+	gs <- initGlobalState
 	time <- newIORef =<< fromIntegral <$> getTicks
 
 	reactimate
 		(Event <$> getSDLEvents)
 		(getInput time)
 		(handleOutput assets)
-		(sfMain gs)
+		(sfMain gs (gfx M.! Digits))
 
 	Graphics.UI.SDL.quit
 
@@ -83,11 +83,11 @@ getInput time canBlock = do
 	return ((fromIntegral dt) / 1000, Just events)
 	return (1 / 60, Just events)
 
-handleOutput :: Assets -> Bool -> (GameOutput, Bool) -> IO Bool
+handleOutput :: Assets -> Bool -> (FullGameOutput, Bool) -> IO Bool
 handleOutput assets hasChanged (go, quitNow) = do
 	case go of
-		HighScore _ _ (Event EditingStart) -> startEditing
-		HighScore _ hs (Event EditingStop) -> endEditing hs
+		FullGameOutput (HighScore _ _ (Event EditingStart)) _ _ -> startEditing
+		FullGameOutput (HighScore _ hs (Event EditingStop)) _ _ -> endEditing hs
 		_ -> return ()
 	
 	runReaderT (renderOutput go) assets
@@ -96,25 +96,22 @@ handleOutput assets hasChanged (go, quitNow) = do
 	SDL.flip surface
 	return quitNow
 
-initGlobalState :: Sprite -> IO GlobalState
-initGlobalState digits = do
+initGlobalState :: IO GlobalState
+initGlobalState = do
 	hs <- loadHighScoreTable "spaceships"
-	let scoreC = initCounter digits 5
-	let levelC = initCounter digits 2
 	return$ GlobalState {
 		gs_score = 0,
 		gs_level = 1,
-		gs_scoreC = resetCounter 0 scoreC,
-		gs_levelC = resetCounter 1 levelC,
 		gs_highScores = hs
 	}
 
-sfMain :: GlobalState -> SF (Event SDLEvents) (GameOutput, Bool)
-sfMain gs = proc e -> do
+sfMain :: GlobalState -> Sprite -> SF (Event SDLEvents) (FullGameOutput, Bool)
+sfMain gs digits = proc e -> do
 	quitEvents <- sdlQuitEvents -< e
 	escEvents <- sdlKeyPresses (mkKey SDLK_ESCAPE) True -< e
 
-	out <- introMode gs -< e
+	out <- addCounters
+		(initCounter digits 5) (initCounter digits 2) (introMode gs) -< e
 
 	returnA -< (out, isEvent quitEvents || isEvent escEvents)
 

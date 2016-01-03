@@ -5,12 +5,13 @@
 module Spaceships.GameState (
 	Direction(..),
 	GlobalState(..),
-	GameOutput(..), HighScoreEditing(..),
+	GameOutput(..), FullGameOutput(..), HighScoreEditing(..),
 	GameRound(..),
 	LaneControl(..), GameObject(..), Kind(..),
 	Tile(..), allTiles,
 	lanePosition,
-	introMode
+	introMode,
+	addCounters
 ) where
 
 import Common.Counters
@@ -20,13 +21,14 @@ import Control.Applicative
 import Control.Monad.State (execState)
 import Data.List
 import Data.Maybe
+import FRP.Counters
 import FRP.Events
 import FRP.Yampa
 import FRP.Yampa.Vector2
 import Graphics.UI.SDL hiding (Event, NoEvent)
 import qualified Graphics.UI.SDL as SDL
 
-import Debug.Trace
+-- import Debug.Trace
 
 -- Exposed types
 -- ----------------------------------------------------------------------------
@@ -41,6 +43,11 @@ data GameOutput =
 		Playing GameRound
 	deriving Show
 
+data FullGameOutput = FullGameOutput {
+	go_out :: GameOutput,
+	go_levelC :: CounterState,
+	go_scoreC :: CounterState} deriving Show
+
 data RoundOutcome = RoundDied | RoundCompleted deriving Show
 
 data HighScoreEditing = EditingStart | EditingStop deriving Show
@@ -48,8 +55,6 @@ data HighScoreEditing = EditingStart | EditingStop deriving Show
 data GlobalState = GlobalState {
 	gs_score :: Int,
 	gs_level :: Int,
-	gs_scoreC :: CounterState,
-	gs_levelC :: CounterState,
 	gs_highScores :: HighScoreState
 } deriving Show
 
@@ -61,9 +66,7 @@ initSpaceship = GameObject Player (LaneControl (HLane 9) laneMax DLeft)
 initEnemy n = GameObject Enemy (LaneControl (VLane n) 0 DDown)
 
 data GameRound = GameRound {
-	gr_objects :: [GameObject],
-	gr_scoreC :: CounterState,
-	gr_levelC :: CounterState
+	gr_objects :: [GameObject]
 } deriving Show
 
 data Tile = Digits | Paused | GameOverTile |
@@ -78,7 +81,7 @@ allTiles = enumFrom Digits   -- A list of all the tiles
 -- ----------------------------------------------------------------------------
 
 tileSize = 26 :: Int
-levelBonus = 0 :: Int
+levelBonus = 5 :: Int
 nLanes = 10 :: Int
 baseSpeed = 10 :: Float
 laserWidth = 10 :: Int -- TODO: check this
@@ -104,56 +107,79 @@ boundingRect (GameObject Laser (lane@(LaneControl _ _ dir))) =
 boundingRect (GameObject _ lane) =
 	let (x, y) = lanePosition lane in (x, y, tileSize, tileSize)
 
+resetGlobalState :: GlobalState -> GlobalState
+resetGlobalState gs = gs {gs_level = 1, gs_score = 0}
+
 -- Top level SFs
 -- ----------------------------------------------------------------------------
 
-introMode :: GlobalState -> SF (Event SDLEvents) GameOutput
-introMode gs = switch (doIntro gs) (const$ gameRound gs)
+data SLCounterCommand =
+	ScoreUpdate CounterCommand |
+	LevelUpdate CounterCommand |
+	ScoreLevelUpdate CounterCommand CounterCommand deriving Show
 
-gameOverMode :: GlobalState -> SF (Event SDLEvents) GameOutput
+addCounters :: CounterState -> CounterState ->
+	SF (Event SDLEvents) (GameOutput, Event SLCounterCommand) ->
+	SF (Event SDLEvents) FullGameOutput
+addCounters scoreC levelC sf = sf >>> proc (go, cmd) -> do
+	let (scmd, lcmd) = case cmd of
+		Event (ScoreUpdate s) -> (Event s, NoEvent)
+		Event (LevelUpdate l) -> (NoEvent, Event l)
+		Event (ScoreLevelUpdate s l) -> (Event s, Event l)
+		NoEvent -> (NoEvent, NoEvent)
+	score <- counterControl (resetCounter 0 scoreC) -< scmd
+	level <- counterControl (resetCounter 1 levelC) -< lcmd
+	returnA -< FullGameOutput {go_out = go, go_levelC = level, go_scoreC = score}
+
+introMode :: GlobalState -> SF (Event SDLEvents) (GameOutput, Event SLCounterCommand)
+introMode gs = switch (doIntro gs) (const$ gameRound (resetGlobalState gs))
+
+gameOverMode :: GlobalState -> SF (Event SDLEvents) (GameOutput, Event SLCounterCommand)
 gameOverMode gs = switch (doGameOver gs) (const$ introMode gs)
 
-highScoreMode :: GlobalState -> SF (Event SDLEvents) GameOutput
+highScoreMode :: GlobalState -> SF (Event SDLEvents) (GameOutput, Event SLCounterCommand)
 highScoreMode gs = dSwitch (doHighScore gs) (\gs' -> introMode gs')
 
-gameRound :: GlobalState -> SF (Event SDLEvents) GameOutput
-gameRound gs = switch (doGameRound gs)$ \case 
-	(RoundCompleted, gs') -> gameRound$ gs' {
-		gs_level = (gs_level gs') + 1,
-		gs_score = (gs_score gs') + levelBonus,
-		gs_scoreC = addCounter levelBonus (gs_scoreC gs),
-		gs_levelC = addCounter 1 (gs_levelC gs)
-	}
+gameRound :: GlobalState -> SF (Event SDLEvents) (GameOutput, Event SLCounterCommand)
+gameRound gs = dSwitch (doGameRound gs)$ \case 
+	(RoundCompleted, gs') -> gameRound gs'
 	(RoundDied, gs') -> if isNewHighScore (gs_score gs') (gs_highScores gs')
 		then highScoreMode gs' else gameOverMode gs'
 
 -- Mode SFs
 -- ----------------------------------------------------------------------------
 
-doIntro :: GlobalState -> SF (Event SDLEvents) (GameOutput, Event ())
+-- Like "now", but delays the event.
+-- Used to generate an event that will be seen after a delayed switch
+nowE :: b -> SF a (Event b)
+nowE x = takeEvents 2 <<< constant (Event x)
+
+doIntro :: GlobalState -> SF (Event SDLEvents) ((GameOutput, Event SLCounterCommand), Event ())
 doIntro gs = proc e -> do
 	eF2 <- sdlKeyPresses (mkKey SDLK_F2) True -< e
-	returnA -< (Intro gs, eF2 `tag` ())
+	resetCounters <-
+		nowE (ScoreLevelUpdate (CounterReset 0) (CounterReset 1)) -< ()
+	returnA -< ((Intro gs, resetCounters), eF2 `tag` ())
 
-doGameOver :: GlobalState -> SF (Event SDLEvents) (GameOutput, Event ())
+doGameOver :: GlobalState -> SF (Event SDLEvents) ((GameOutput, Event SLCounterCommand), Event ())
 doGameOver gs = proc e -> do
-	r <- after 3 () -< ()
-	returnA -< (GameOver gs, r)
+	r <- after 5 () -< ()
+	returnA -< ((GameOver gs, NoEvent), r)
 
 doHighScore :: GlobalState ->
-	SF (Event SDLEvents) (GameOutput, Event GlobalState)
+	SF (Event SDLEvents) ((GameOutput, Event SLCounterCommand), Event GlobalState)
 doHighScore gs =
 	let hs0 = insertHighScore (gs_score gs) (gs_highScores gs)
 	in loopPre hs0$ proc (e, hs0) -> do
 		let hs1 = execState (handleEvents highScoreEventHandler (event [] id e)) hs0
 
-		eStart <- now EditingStart -< ()
+		eStart <- nowE EditingStart -< ()
 		let eStop = if not$ isEditing hs1
 			then Event (gs {gs_highScores = hs1})
 			else NoEvent
 		let eEditing = eStart `lMerge` (eStop `tag` EditingStop)
-		
-		returnA -< ((HighScore gs hs1 eEditing, eStop), hs1)
+
+		returnA -< (((HighScore gs hs1 eEditing, NoEvent), eStop), hs1)
 
 -- Game SFs
 -- ----------------------------------------------------------------------------
@@ -164,20 +190,26 @@ type GameObjectController = SF (Event [SpaceshipCommand], [GameObject]) (GameObj
 type GameObjectControllers = SF (Event [SpaceshipCommand], [GameObject]) [(GameObject, Event FireTheLazer)]
 
 doGameRound :: GlobalState ->
-	SF (Event SDLEvents) (GameOutput, Event (RoundOutcome, GlobalState))
+	SF (Event SDLEvents) ((GameOutput, Event SLCounterCommand), Event (RoundOutcome, GlobalState))
 doGameRound gs = proc e -> do
 	objs <- objects initRound <<< spaceshipInput -< e
+
+	let roundCompleted = not.any (\(GameObject p _) -> p == Enemy)$ objs
+
 	let e =
 		if not.any (\(GameObject p _) -> p == Player)$ objs
 			then Event (RoundDied, gs)
-		else if not.any (\(GameObject p _) -> p == Enemy)$ objs
-			then Event (RoundCompleted, gs)
+		else if roundCompleted
+			then Event (RoundCompleted, gs {
+				gs_level = (gs_level gs) + 1,
+				gs_score = (gs_score gs) + levelBonus})
 		else NoEvent
-	returnA -< (Playing$ GameRound {
-			gr_objects = objs,
-			gr_scoreC = gs_scoreC gs,
-			gr_levelC = gs_levelC gs
-		}, e)
+	
+	let counterCmd = if roundCompleted
+		then Event$ ScoreLevelUpdate (CounterAdd levelBonus) (CounterAdd 1)
+		else NoEvent
+
+	returnA -< ((Playing$ GameRound {gr_objects = objs}, counterCmd), e)
 
 objects :: [GameObject] -> SF (Event [SpaceshipCommand]) [GameObject]
 objects objs0 = proc e -> do
