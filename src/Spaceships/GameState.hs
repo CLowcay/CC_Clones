@@ -1,4 +1,5 @@
 {-# LANGUAGE Arrows #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TupleSections #-}
 
@@ -21,6 +22,7 @@ import Control.Applicative
 import Control.Monad.State (execState)
 import Data.List
 import Data.Maybe
+import Data.Monoid
 import FRP.Counters
 import FRP.Events
 import FRP.Yampa
@@ -81,7 +83,9 @@ allTiles = enumFrom Digits   -- A list of all the tiles
 -- ----------------------------------------------------------------------------
 
 tileSize = 26 :: Int
-levelBonus = 5 :: Int
+laserStrikePoints = 2 :: Int
+forcedCollisionPoints = 5 :: Int
+levelBonus = 9 :: Int
 nLanes = 10 :: Int
 baseSpeed = 10 :: Float
 laserWidth = 10 :: Int -- TODO: check this
@@ -117,6 +121,18 @@ data SLCounterCommand =
 	ScoreUpdate CounterCommand |
 	LevelUpdate CounterCommand |
 	ScoreLevelUpdate CounterCommand CounterCommand deriving Show
+
+instance Monoid SLCounterCommand where
+	mempty = ScoreUpdate$ CounterAdd 0
+	(ScoreUpdate x) `mappend` (ScoreUpdate y) = ScoreUpdate (x <> y)
+	(LevelUpdate x) `mappend` (LevelUpdate y) = LevelUpdate (x <> y)
+	(ScoreLevelUpdate x1 x2) `mappend` (ScoreLevelUpdate y1 y2) = ScoreLevelUpdate (x1 <> y1) (x2 <> y2)
+	(ScoreUpdate x) `mappend`          (LevelUpdate y) = ScoreLevelUpdate x y
+	(ScoreUpdate x) `mappend` (ScoreLevelUpdate y1 y2) = ScoreLevelUpdate (x <> y1) y2
+	(LevelUpdate x) `mappend` (ScoreLevelUpdate y1 y2) = ScoreLevelUpdate y1 (x <> y2)
+	(LevelUpdate y)          `mappend` (ScoreUpdate x) = ScoreLevelUpdate x y
+	(ScoreLevelUpdate y1 y2) `mappend` (ScoreUpdate x) = ScoreLevelUpdate (x <> y1) y2
+	(ScoreLevelUpdate y1 y2) `mappend` (LevelUpdate x) = ScoreLevelUpdate y1 (x <> y2)
 
 addCounters :: CounterState -> CounterState ->
 	SF (Event SDLEvents) (GameOutput, Event SLCounterCommand) ->
@@ -184,15 +200,28 @@ doHighScore gs =
 -- Game SFs
 -- ----------------------------------------------------------------------------
 
+data GameObjectContainer a = GameObjectContainer {
+	getCounterCommand :: (Event SLCounterCommand),
+	getObjects :: [a]
+} deriving Functor
+
+setCounterCommand :: Event SLCounterCommand -> GameObjectContainer a -> GameObjectContainer a
+setCounterCommand x c = c {getCounterCommand = x}
+
 data FireTheLazer = FireTheLazer deriving (Show, Eq)
 data SpaceshipCommand = DirectionCommand Direction | FireCommand deriving (Show, Eq)
-type GameObjectController = SF (Event [SpaceshipCommand], [GameObject]) (GameObject, Event FireTheLazer)
-type GameObjectControllers = SF (Event [SpaceshipCommand], [GameObject]) [(GameObject, Event FireTheLazer)]
+type GameObjectController = SF
+	(Event [SpaceshipCommand], [GameObject])
+	(GameObject, Event FireTheLazer)
+type GameObjectControllers = SF
+	(Event [SpaceshipCommand], [GameObject], Event SLCounterCommand)
+	(GameObjectContainer (GameObject, Event FireTheLazer))
 
 doGameRound :: GlobalState ->
 	SF (Event SDLEvents) ((GameOutput, Event SLCounterCommand), Event (RoundOutcome, GlobalState))
 doGameRound gs = proc e -> do
-	objs <- objects initRound <<< spaceshipInput -< e
+	GameObjectContainer counterCmd0 objs <-
+		objects initRound <<< spaceshipInput -< e
 
 	let roundCompleted = not.any (\(GameObject p _) -> p == Enemy)$ objs
 
@@ -205,37 +234,48 @@ doGameRound gs = proc e -> do
 				gs_score = (gs_score gs) + levelBonus})
 		else NoEvent
 	
-	let counterCmd = if roundCompleted
+	let counterCmd1 = if roundCompleted
 		then Event$ ScoreLevelUpdate (CounterAdd levelBonus) (CounterAdd 1)
 		else NoEvent
 
-	returnA -< ((Playing$ GameRound {gr_objects = objs}, counterCmd), e)
+	returnA -<
+		((Playing$ GameRound {gr_objects = objs},
+			mergeBy (<>) counterCmd0 counterCmd1), e)
 
-objects :: [GameObject] -> SF (Event [SpaceshipCommand]) [GameObject]
+objects :: [GameObject] ->
+	SF (Event [SpaceshipCommand]) (GameObjectContainer GameObject)
 objects objs0 = proc e -> do
 	rec
-		objs <- (arr$ fmap fst) <<< objectControl objs0 <<< iPre (NoEvent, objs0) -< (e, objs)
-	returnA -< objs
+		r@(GameObjectContainer _ objs) <- (arr$ fmap fst)
+			<<< objectControl (GameObjectContainer NoEvent objs0)
+			<<< iPre (NoEvent, objs0, NoEvent) -< (e, objs, NoEvent)
+	returnA -< r
 
-objectControl :: [GameObject] -> GameObjectControllers
-objectControl objs0 = pSwitchB
+objectControl :: GameObjectContainer GameObject -> GameObjectControllers
+objectControl objs0 = pSwitch
+	(\(cmd, feedback, counterCmd) sfs ->
+		((cmd, feedback),) <$> setCounterCommand counterCmd sfs)
 	(mkController <$> objs0)
-	gameLogic$ \controllers objs ->
-		(NoEvent, objs) >-- objectControl objs
+	gameLogic$ \controllers (objs, counterCmd) ->
+		(NoEvent, objs, counterCmd) >-- objectControl (GameObjectContainer NoEvent objs)
 	where
 		mkController (obj@(GameObject Player _)) = player baseSpeed obj
 		mkController (obj@(GameObject Enemy _)) = enemy baseSpeed obj
 		mkController (obj@(GameObject Laser _)) = laser (baseSpeed * 1.2) obj
 
-gameLogic :: SF ((Event [SpaceshipCommand], [GameObject]), [(GameObject, Event FireTheLazer)]) (Event [GameObject])
-gameLogic = proc (_, objCmds) -> do
+gameLogic :: SF
+	((Event [SpaceshipCommand], [GameObject], Event SLCounterCommand), GameObjectContainer (GameObject, Event FireTheLazer))
+	(Event ([GameObject], Event SLCounterCommand))
+gameLogic = proc (_, GameObjectContainer _ objCmds) -> do
 	let objs = fst <$> objCmds
 	let candidates = case tails objs of
 		[] -> []
 		(xs:tls) -> (objs `zip`) =<< tls
-	let objectCollisions = nub$ foldr (\(x, y) collisions ->
-		if isCollision x y then x:y:collisions else collisions) [] candidates
-	let allCollisions = objectCollisions ++ (filter isLaserOutOfBounds objs)
+	let (objectCollisions, score) = foldr (\(x, y) (collisions, s) ->
+		if isCollision x y
+			then (x:y:collisions, s + scoreCollision x y)
+			else (collisions, s)) ([], 0) candidates
+	let allCollisions = (nub objectCollisions) ++ (filter isLaserOutOfBounds objs)
 	let anyCollisions = not$ null allCollisions
 	let survivors = filter (not.(`elem` allCollisions).fst) objCmds
 	let (withLasers, anyLasers) = foldr
@@ -245,7 +285,10 @@ gameLogic = proc (_, objCmds) -> do
 				Nothing -> rl
 			NoEvent -> rl
 		) (fst <$> survivors, False) survivors
-	returnA -< if anyLasers || anyCollisions then Event withLasers else NoEvent
+
+	let counterCmd = if score > 0 then Event$ ScoreUpdate$ CounterAdd score else NoEvent
+	returnA -< if anyLasers || anyCollisions
+		then Event (withLasers, counterCmd) else NoEvent
 	
 isCollision :: GameObject -> GameObject -> Bool
 -- lasers cannot collide with lasers
@@ -255,6 +298,11 @@ isCollision a b =
 		(x1, y1, w1, h1) = boundingRect a
 		(x2, y2, w2, h2) = boundingRect b
 	in x1 + w1 >= x2 && x2 + w2 >= x1 && y1 + h1 >= y2 && y2 + h2 >= y1
+
+scoreCollision :: GameObject -> GameObject -> Int
+scoreCollision (GameObject Laser _) (GameObject Enemy _) = 2
+scoreCollision (GameObject Enemy _) (GameObject Laser _) = 2
+scoreCollision _ _ = 0
 
 isLaserOutOfBounds :: GameObject -> Bool
 isLaserOutOfBounds (GameObject Laser (LaneControl _ p _)) = p <= 0 || p >= laneMax

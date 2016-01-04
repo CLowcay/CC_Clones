@@ -7,10 +7,24 @@ module FRP.Counters (
 ) where
 
 import Common.Counters
+import Data.Monoid
 import FRP.Yampa
 
 data CounterCommand =
 	CounterAdd Int | CounterSub Int | CounterSet Int | CounterReset Int deriving Show
+
+instance Monoid CounterCommand where
+	mempty = CounterAdd 0
+	_ `mappend` (CounterSet y) = CounterSet y
+	_ `mappend` (CounterReset y) = CounterReset y
+	(CounterSet x) `mappend` (CounterAdd y) = CounterSet (x + y)
+	(CounterReset x) `mappend` (CounterAdd y) = CounterSet (x + y)
+	(CounterSet x) `mappend` (CounterSub y) = CounterSet (0 `max` (x - y))
+	(CounterReset x) `mappend` (CounterSub y) = CounterSet (0 `max` (x - y))
+	(CounterAdd x) `mappend` (CounterAdd y) = CounterAdd (x + y)
+	(CounterAdd x) `mappend` (CounterSub y) = if x >= y then CounterAdd (x - y) else CounterSub (y - x)
+	(CounterSub x) `mappend` (CounterAdd y) = if y >= x then CounterAdd (y - x) else CounterSub (x - y)
+	(CounterSub x) `mappend` (CounterSub y) = CounterSub (x + y)
 
 type CounterControl = SF (Event CounterCommand) CounterState
 
