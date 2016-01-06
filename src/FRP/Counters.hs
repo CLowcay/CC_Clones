@@ -2,6 +2,7 @@
 
 module FRP.Counters (
 	CounterCommand(..),
+	applyCounterCommand,
 	CounterControl,
 	counterControl
 ) where
@@ -25,6 +26,12 @@ instance Monoid CounterCommand where
 	(CounterAdd x) `mappend` (CounterSub y) = if x >= y then CounterAdd (x - y) else CounterSub (y - x)
 	(CounterSub x) `mappend` (CounterAdd y) = if y >= x then CounterAdd (y - x) else CounterSub (x - y)
 	(CounterSub x) `mappend` (CounterSub y) = CounterSub (x + y)
+
+applyCounterCommand :: CounterCommand -> Int -> Int
+applyCounterCommand (CounterAdd x) z = z + x
+applyCounterCommand (CounterSub x) z = z - x
+applyCounterCommand (CounterSet x) _ = x
+applyCounterCommand (CounterReset x) _ = x
 
 type CounterControl = SF (Event CounterCommand) CounterState
 

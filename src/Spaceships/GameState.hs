@@ -134,6 +134,13 @@ instance Monoid SLCounterCommand where
 	(ScoreLevelUpdate y1 y2) `mappend` (ScoreUpdate x) = ScoreLevelUpdate (x <> y1) y2
 	(ScoreLevelUpdate y1 y2) `mappend` (LevelUpdate x) = ScoreLevelUpdate y1 (x <> y2)
 
+applySLCounterCommand :: SLCounterCommand -> GlobalState -> GlobalState
+applySLCounterCommand (ScoreUpdate cmd) gs = gs {gs_score = applyCounterCommand cmd (gs_score gs)}
+applySLCounterCommand (LevelUpdate cmd) gs = gs {gs_level = applyCounterCommand cmd (gs_level gs)}
+applySLCounterCommand (ScoreLevelUpdate cmds cmdl) gs = gs {
+	gs_score = applyCounterCommand cmds (gs_score gs),
+	gs_level = applyCounterCommand cmdl (gs_level gs)}
+
 addCounters :: CounterState -> CounterState ->
 	SF (Event SDLEvents) (GameOutput, Event SLCounterCommand) ->
 	SF (Event SDLEvents) FullGameOutput
@@ -247,25 +254,36 @@ objects :: [GameObject] ->
 objects objs0 = proc e -> do
 	rec
 		r@(GameObjectContainer _ objs) <- (arr$ fmap fst)
-			<<< objectControl (GameObjectContainer NoEvent objs0)
+			<<< objectControl (GameObjectContainer NoEvent (mkController <$> objs0))
 			<<< iPre (NoEvent, objs0, NoEvent) -< (e, objs, NoEvent)
 	returnA -< r
 
-objectControl :: GameObjectContainer GameObject -> GameObjectControllers
+mkController :: GameObject -> GameObjectController
+mkController (obj@(GameObject Player _)) = player baseSpeed obj
+mkController (obj@(GameObject Enemy _)) = enemy baseSpeed obj
+mkController (obj@(GameObject Laser _)) = laser (baseSpeed * 1.2) obj
+
+objectControl :: GameObjectContainer GameObjectController -> GameObjectControllers
 objectControl objs0 = pSwitch
 	(\(cmd, feedback, counterCmd) sfs ->
 		((cmd, feedback),) <$> setCounterCommand counterCmd sfs)
-	(mkController <$> objs0)
-	gameLogic$ \controllers (objs, counterCmd) ->
-		(NoEvent, objs, counterCmd) >-- objectControl (GameObjectContainer NoEvent objs)
+	objs0
+	gameLogic$ \controllers (containerOps, objs, counterCmd) ->
+		(NoEvent, objs, counterCmd) >--
+			objectControl$ updateControllers controllers containerOps objs
+		
 	where
-		mkController (obj@(GameObject Player _)) = player baseSpeed obj
-		mkController (obj@(GameObject Enemy _)) = enemy baseSpeed obj
-		mkController (obj@(GameObject Laser _)) = laser (baseSpeed * 1.2) obj
+		updateControllers (GameObjectContainer e controllers) containerOps objs =
+			GameObjectContainer e
+				(applyContainerOps controllers containerOps ++ (mkController <$> objs))
+
+data ObjectContainerOp = KeepIt | ChuckIt deriving (Show, Eq)
+applyContainerOps :: [a] -> [ObjectContainerOp] -> [a]
+applyContainerOps xs cmds = fst <$> filter ((/= ChuckIt).snd) (xs `zip` cmds)
 
 gameLogic :: SF
 	((Event [SpaceshipCommand], [GameObject], Event SLCounterCommand), GameObjectContainer (GameObject, Event FireTheLazer))
-	(Event ([GameObject], Event SLCounterCommand))
+	(Event ([ObjectContainerOp], [GameObject], Event SLCounterCommand))
 gameLogic = proc (_, GameObjectContainer _ objCmds) -> do
 	let objs = fst <$> objCmds
 	let candidates = case tails objs of
@@ -277,18 +295,23 @@ gameLogic = proc (_, GameObjectContainer _ objCmds) -> do
 			else (collisions, s)) ([], 0) candidates
 	let allCollisions = (nub objectCollisions) ++ (filter isLaserOutOfBounds objs)
 	let anyCollisions = not$ null allCollisions
+
 	let survivors = filter (not.(`elem` allCollisions).fst) objCmds
-	let (withLasers, anyLasers) = foldr
+
+	let containerOps = fmap (\(x, _) ->
+		if x `elem` allCollisions then ChuckIt else KeepIt) objCmds
+
+	let (newLasers, anyLasers) = foldr
 		(\(obj, e) (rl@(r, _)) -> case e of
 			Event _ -> case fireLaser obj of
-				Just laserBolt -> (r ++ [laserBolt], True)
+				Just laserBolt -> (laserBolt:r, True)
 				Nothing -> rl
 			NoEvent -> rl
-		) (fst <$> survivors, False) survivors
+		) ([], False) survivors
 
 	let counterCmd = if score > 0 then Event$ ScoreUpdate$ CounterAdd score else NoEvent
 	returnA -< if anyLasers || anyCollisions
-		then Event (withLasers, counterCmd) else NoEvent
+		then Event (containerOps, newLasers, counterCmd) else NoEvent
 	
 isCollision :: GameObject -> GameObject -> Bool
 -- lasers cannot collide with lasers
