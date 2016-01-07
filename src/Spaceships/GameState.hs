@@ -36,7 +36,7 @@ import qualified Graphics.UI.SDL as SDL
 -- ----------------------------------------------------------------------------
 
 data Direction = DLeft | DUp | DDown | DRight deriving (Eq, Ord, Show)
-data Lane = HLane Int | VLane Int deriving (Eq, Ord, Show)
+data Lane = HLane !Int | VLane !Int deriving (Eq, Ord, Show)
 
 data GameOutput =
 		Intro GlobalState |
@@ -46,7 +46,7 @@ data GameOutput =
 	deriving Show
 
 data FullGameOutput = FullGameOutput {
-	go_out :: GameOutput,
+	go_out :: !GameOutput,
 	go_levelC :: CounterState,
 	go_scoreC :: CounterState} deriving Show
 
@@ -55,20 +55,20 @@ data RoundOutcome = RoundDied | RoundCompleted deriving Show
 data HighScoreEditing = EditingStart | EditingStop deriving Show
 
 data GlobalState = GlobalState {
-	gs_score :: Int,
-	gs_level :: Int,
+	gs_score :: !Int,
+	gs_level :: !Int,
 	gs_highScores :: HighScoreState
 } deriving Show
 
-data GameObject = GameObject Kind LaneControl deriving (Show, Eq)
-data LaneControl = LaneControl Lane Float Direction deriving (Show, Eq)
+data GameObject = GameObject !Kind !LaneControl deriving (Show, Eq)
+data LaneControl = LaneControl !Lane !Float !Direction deriving (Show, Eq)
 data Kind = Player | Enemy | Laser deriving (Show, Eq)
 
 initSpaceship = GameObject Player (LaneControl (HLane 9) laneMax DLeft)
 initEnemy n = GameObject Enemy (LaneControl (VLane n) 0 DDown)
 
 data GameRound = GameRound {
-	gr_objects :: [GameObject]
+	gr_objects :: ![GameObject]
 } deriving Show
 
 data Tile = Digits | Paused | GameOverTile |
@@ -118,9 +118,9 @@ resetGlobalState gs = gs {gs_level = 1, gs_score = 0}
 -- ----------------------------------------------------------------------------
 
 data SLCounterCommand =
-	ScoreUpdate CounterCommand |
-	LevelUpdate CounterCommand |
-	ScoreLevelUpdate CounterCommand CounterCommand deriving Show
+	ScoreUpdate !CounterCommand |
+	LevelUpdate !CounterCommand |
+	ScoreLevelUpdate !CounterCommand !CounterCommand deriving Show
 
 instance Monoid SLCounterCommand where
 	mempty = ScoreUpdate$ CounterAdd 0
@@ -209,15 +209,15 @@ doHighScore gs =
 -- ----------------------------------------------------------------------------
 
 data GameObjectContainer a = GameObjectContainer {
-	getCounterCommand :: (Event SLCounterCommand),
+	getCounterCommand :: !(Event SLCounterCommand),
 	getObjects :: [a]
 } deriving Functor
 
 setCounterCommand :: Event SLCounterCommand -> GameObjectContainer a -> GameObjectContainer a
 setCounterCommand x c = c {getCounterCommand = x}
 
-data FireTheLazer = FireTheLazer deriving (Show, Eq)
-data SpaceshipCommand = DirectionCommand Direction | FireCommand deriving (Show, Eq)
+data FireTheLazer = FireTheLazer !GameObject deriving (Show, Eq)
+data SpaceshipCommand = DirectionCommand !Direction | FireCommand deriving (Show, Eq)
 type GameObjectController = SF
 	(Event [SpaceshipCommand], [GameObject])
 	(GameObject, Event FireTheLazer)
@@ -296,21 +296,19 @@ gameLogic = proc (_, GameObjectContainer _ objCmds) -> do
 	let allCollisions = (nub objectCollisions) ++ (filter isLaserOutOfBounds objs)
 	let anyCollisions = not$ null allCollisions
 
-	let survivors = filter (not.(`elem` allCollisions).fst) objCmds
-
 	let containerOps = fmap (\(x, _) ->
 		if x `elem` allCollisions then ChuckIt else KeepIt) objCmds
-
-	let (newLasers, anyLasers) = foldr
-		(\(obj, e) (rl@(r, _)) -> case e of
-			Event _ -> case fireLaser obj of
-				Just laserBolt -> (laserBolt:r, True)
-				Nothing -> rl
-			NoEvent -> rl
-		) ([], False) survivors
+	
+	let newLaserEvents =
+		catEvents . fmap snd . filter ((/= ChuckIt).fst)$
+			containerOps `zip` (snd <$> objCmds)
+	
+	let newLasers = case newLaserEvents of
+		NoEvent -> []
+		Event xs -> fmap (\(FireTheLazer l) -> l) xs
 
 	let counterCmd = if score > 0 then Event$ ScoreUpdate$ CounterAdd score else NoEvent
-	returnA -< if anyLasers || anyCollisions
+	returnA -< if anyCollisions || not (null newLasers)
 		then Event (containerOps, newLasers, counterCmd) else NoEvent
 	
 isCollision :: GameObject -> GameObject -> Bool
@@ -334,12 +332,12 @@ isLaserOutOfBounds _ = False
 initRound :: [GameObject]
 initRound = initSpaceship : (initEnemy <$> [0..(nLanes - 1)])
 
-fireLaser :: GameObject -> Maybe GameObject
+fireLaser :: GameObject -> Event FireTheLazer
 fireLaser (GameObject _ (LaneControl lane0 p0 d0)) =
 	let p = p0 + (fromIntegral$
 		if d0 == DLeft || d0 == DUp then 0 - tileSize else tileSize)
-	in if p <= 0 || p >= laneMax then Nothing
-		else Just$ GameObject Laser (LaneControl lane0 p d0)
+	in if p <= 0 || p >= laneMax then NoEvent
+		else Event$ FireTheLazer$ GameObject Laser (LaneControl lane0 p d0)
 
 laser :: Float -> GameObject -> GameObjectController
 laser speed0 (GameObject k l0) =
@@ -364,7 +362,7 @@ player speed0 obj0 = proc (e, _) -> do
 	obj <- spaceshipMotion speed0 obj0 -<
 		mapFilterE (safeLast.catMaybes.fmap directionCommand) e
 	returnA -< if event False (FireCommand `elem`) e
-		then (obj, Event FireTheLazer)
+		then (obj, fireLaser obj)
 		else (obj, NoEvent)
 
 	where
