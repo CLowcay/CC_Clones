@@ -134,12 +134,13 @@ instance Monoid SLCounterCommand where
 	(ScoreLevelUpdate y1 y2) `mappend` (ScoreUpdate x) = ScoreLevelUpdate (x <> y1) y2
 	(ScoreLevelUpdate y1 y2) `mappend` (LevelUpdate x) = ScoreLevelUpdate y1 (x <> y2)
 
-applySLCounterCommand :: SLCounterCommand -> GlobalState -> GlobalState
-applySLCounterCommand (ScoreUpdate cmd) gs = gs {gs_score = applyCounterCommand cmd (gs_score gs)}
-applySLCounterCommand (LevelUpdate cmd) gs = gs {gs_level = applyCounterCommand cmd (gs_level gs)}
-applySLCounterCommand (ScoreLevelUpdate cmds cmdl) gs = gs {
-	gs_score = applyCounterCommand cmds (gs_score gs),
-	gs_level = applyCounterCommand cmdl (gs_level gs)}
+trackScores :: GlobalState -> SF (Event SLCounterCommand) GlobalState
+trackScores = accumHoldBy$ \gs slCmd -> case slCmd of
+	ScoreUpdate cmd -> gs {gs_score = applyCounterCommand cmd (gs_score gs)}
+	LevelUpdate cmd -> gs {gs_level = applyCounterCommand cmd (gs_level gs)}
+	ScoreLevelUpdate cmds cmdl -> gs {
+		gs_score = applyCounterCommand cmds (gs_score gs),
+		gs_level = applyCounterCommand cmdl (gs_level gs)}
 
 addCounters :: CounterState -> CounterState ->
 	SF (Event SDLEvents) (GameOutput, Event SLCounterCommand) ->
@@ -226,28 +227,27 @@ type GameObjectControllers = SF
 
 doGameRound :: GlobalState ->
 	SF (Event SDLEvents) ((GameOutput, Event SLCounterCommand), Event (RoundOutcome, GlobalState))
-doGameRound gs = proc e -> do
+doGameRound gs0 = proc e -> do
 	GameObjectContainer counterCmd0 objs <-
 		objects initRound <<< spaceshipInput -< e
 
 	let roundCompleted = not.any (\(GameObject p _) -> p == Enemy)$ objs
 
-	let e =
-		if not.any (\(GameObject p _) -> p == Player)$ objs
-			then Event (RoundDied, gs)
-		else if roundCompleted
-			then Event (RoundCompleted, gs {
-				gs_level = (gs_level gs) + 1,
-				gs_score = (gs_score gs) + levelBonus})
-		else NoEvent
-	
 	let counterCmd1 = if roundCompleted
 		then Event$ ScoreLevelUpdate (CounterAdd levelBonus) (CounterAdd 1)
 		else NoEvent
+	
+	let counterCmd = mergeBy (<>) counterCmd0 counterCmd1
 
-	returnA -<
-		((Playing$ GameRound {gr_objects = objs},
-			mergeBy (<>) counterCmd0 counterCmd1), e)
+	gs <- trackScores gs0 -< counterCmd
+
+	let e =
+		if not.any (\(GameObject p _) -> p == Player)$ objs
+			then Event (RoundDied, gs)
+		else if roundCompleted then Event (RoundCompleted, gs)
+		else NoEvent
+
+	returnA -< ((Playing$ GameRound {gr_objects = objs}, counterCmd), e)
 
 objects :: [GameObject] ->
 	SF (Event [SpaceshipCommand]) (GameObjectContainer GameObject)
