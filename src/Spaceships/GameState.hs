@@ -348,8 +348,16 @@ laser speed0 (GameObject k l0) =
 
 enemy :: Float -> GameObject -> GameObjectController
 enemy speed0 obj0 = proc (_, objs) -> do
-	obj <- spaceshipMotion speed0 obj0 -< NoEvent
+	e <- after firstTurnTime DUp -< ()
+
+	obj <- spaceshipMotion speed0 obj0 -< e
+
 	returnA -< (obj, NoEvent)
+	where
+		firstTurnTime = realToFrac$
+			fromIntegral (laneNumber obj0 * tileSize * 2) / speed0
+		laneNumber (GameObject _ (LaneControl (HLane x) _ _)) = x
+		laneNumber (GameObject _ (LaneControl (VLane x) _ _)) = x
 
 player :: Float -> GameObject -> GameObjectController
 player speed0 obj0 = proc (e, _) -> do
