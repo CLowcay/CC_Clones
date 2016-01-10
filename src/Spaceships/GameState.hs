@@ -90,7 +90,8 @@ laserStrikePoints = 2 :: Int
 forcedCollisionPoints = 5 :: Int
 levelBonus = 9 :: Int
 nLanes = 10 :: Int
-baseSpeed = 10 :: Float
+baseSpeed = 8 :: Time
+speedRamp = 1.1 :: Time
 laserWidth = 10 :: Int -- TODO: check this
 
 laneMax :: Float
@@ -168,10 +169,11 @@ highScoreMode :: GlobalState -> SF (Event SDLEvents) (GameOutput, Event SLCounte
 highScoreMode gs = dSwitch (doHighScore gs) (\gs' -> introMode gs')
 
 gameRound :: GlobalState -> SF (Event SDLEvents) (GameOutput, Event SLCounterCommand)
-gameRound gs = dSwitch (doGameRound gs)$ \case 
+gameRound gs = dSwitch (doGameRound gs speed)$ \case 
 	(RoundCompleted, gs') -> gameRound gs'
 	(RoundDied, gs') -> if isNewHighScore (gs_score gs') (gs_highScores gs')
 		then highScoreMode gs' else gameOverMode gs'
+	where speed = baseSpeed * (speedRamp ** (fromIntegral$ gs_level gs))
 
 -- Mode SFs
 -- ----------------------------------------------------------------------------
@@ -232,11 +234,11 @@ isEnemy :: GameObject -> Bool
 isEnemy (GameObject (Enemy _) _) = True
 isEnemy _ = False
 
-doGameRound :: GlobalState ->
+doGameRound :: GlobalState -> Time ->
 	SF (Event SDLEvents) ((GameOutput, Event SLCounterCommand), Event (RoundOutcome, GlobalState))
-doGameRound gs0 = proc e -> do
+doGameRound gs0 speed = proc e -> do
 	GameObjectContainer counterCmd0 objs <-
-		objects initRound <<< spaceshipInput -< e
+		objects speed initRound <<< spaceshipInput -< e
 
 	let roundCompleted = not.any isEnemy$ objs
 
@@ -256,33 +258,35 @@ doGameRound gs0 = proc e -> do
 
 	returnA -< ((Playing$ GameRound {gr_objects = objs}, counterCmd), e)
 
-objects :: [GameObject] ->
+objects :: Time -> [GameObject] ->
 	SF (Event [SpaceshipCommand]) (GameObjectContainer GameObject)
-objects objs0 = proc e -> do
+objects speed objs0 = proc e -> do
 	rec
 		r@(GameObjectContainer _ objs) <- (arr$ fmap fst)
-			<<< objectControl (GameObjectContainer NoEvent (mkController <$> objs0))
+			<<< objectControl speed (GameObjectContainer NoEvent (mkController speed <$> objs0))
 			<<< iPre (NoEvent, objs0, NoEvent) -< (e, objs, NoEvent)
 	returnA -< r
 
-mkController :: GameObject -> GameObjectController
-mkController (obj@(GameObject Player _)) = player baseSpeed obj
-mkController (obj@(GameObject (Enemy _) _)) = enemy baseSpeed obj
-mkController (obj@(GameObject Laser _)) = laser (baseSpeed * 1.2) obj
+mkController :: Time -> GameObject -> GameObjectController
+mkController speed (obj@(GameObject Player _)) = player speed obj
+mkController speed (obj@(GameObject (Enemy _) _)) = enemy speed obj
+mkController speed (obj@(GameObject Laser _)) = laser (speed * 1.2) obj
 
-objectControl :: GameObjectContainer GameObjectController -> GameObjectControllers
-objectControl objs0 = pSwitch
+objectControl :: Time ->
+	GameObjectContainer GameObjectController ->
+	GameObjectControllers
+objectControl speed0 objs0 = pSwitch
 	(\(cmd, feedback, counterCmd) sfs ->
 		((cmd, feedback),) <$> setCounterCommand counterCmd sfs)
 	objs0
 	gameLogic$ \controllers (containerOps, lasers, objs, counterCmd) ->
 		(NoEvent, objs ++ lasers, counterCmd) >--
-			objectControl$ updateControllers controllers containerOps lasers
+			objectControl speed0$ updateControllers controllers containerOps lasers
 		
 	where
 		updateControllers (GameObjectContainer e controllers) containerOps lasers =
 			GameObjectContainer e
-				(applyContainerOps controllers containerOps ++ (mkController <$> lasers))
+				(applyContainerOps controllers containerOps ++ (mkController speed0 <$> lasers))
 
 data ObjectContainerOp = KeepIt | ChuckIt deriving (Show, Eq)
 applyContainerOps :: [a] -> [ObjectContainerOp] -> [a]
@@ -350,16 +354,16 @@ fireLaser (GameObject _ (LaneControl lane0 p0 d0)) =
 	in if p <= 0 || p >= laneMax then NoEvent
 		else Event$ FireTheLazer$ GameObject Laser (LaneControl lane0 p d0)
 
-laser :: Float -> GameObject -> GameObjectController
+laser :: Time -> GameObject -> GameObjectController
 laser speed0 (GameObject k l0) =
 	(arr$ \(l, _) -> (GameObject k l, NoEvent))
 		<<< laneMotion speed0 l0 <<< never
 
-randomTurnInterval = 5
-seekInterval = 4 
-laserInterval = 10
+randomTurnInterval = baseSpeed * 3
+baseSeekInterval = baseSpeed * 4
+baseLaserInterval = 60
 
-enemy :: Float -> GameObject -> GameObjectController
+enemy :: Time -> GameObject -> GameObjectController
 enemy speed0 obj0 = proc (_, objs) -> do
 	e <- after firstTurnTime DUp -< ()
 
@@ -400,6 +404,8 @@ enemy speed0 obj0 = proc (_, objs) -> do
 
 	returnA -< (obj, doFireLaser)
 	where
+		seekInterval =  (baseSeekInterval * baseSpeed) / speed0
+		laserInterval = baseLaserInterval * (baseSpeed / (speed0 * 1.2))
 		firstTurnTime = realToFrac$
 			fromIntegral (laneNumber obj0 * tileSize * 2) / speed0
 		laneNumber (GameObject _ (LaneControl (HLane x) _ _)) = x
@@ -467,7 +473,7 @@ losToPlayer (GameObject _ (LaneControl lane0 p0 d0)) objs =
 			else
 				if l == lane0 then p - p0 else (laneP l) - p0
 
-player :: Float -> GameObject -> GameObjectController
+player :: Time -> GameObject -> GameObjectController
 player speed0 obj0 = proc (e, _) -> do
 	obj <- spaceshipMotion speed0 obj0 -<
 		mapFilterE (safeLast.catMaybes.fmap directionCommand) e
@@ -481,17 +487,17 @@ player speed0 obj0 = proc (e, _) -> do
 		safeLast [] = Nothing
 		safeLast xs = Just$ last xs
 
-spaceshipMotion :: Float -> GameObject -> SF (Event Direction) GameObject
+spaceshipMotion :: Time -> GameObject -> SF (Event Direction) GameObject
 spaceshipMotion speed0 (GameObject s l0) = switch
 	(arr (first (GameObject s)) <<< laneMotion speed0 l0)
 	(\l -> spaceshipMotion speed0 (GameObject s l))
 
-laneMotion :: Float -> LaneControl ->
+laneMotion :: Time -> LaneControl ->
 	SF (Event Direction) (LaneControl, Event LaneControl)
 laneMotion speed0 (LaneControl lane0 p0 d0) = proc e -> do
 	nextDirection <- hold d0 -< e
 	direction <- laneDirection lane0 d0 -< e
-	let speed =
+	let speed = realToFrac$
 		if direction == DLeft || direction == DUp then (0 - speed0) else speed0
 
 	rec
