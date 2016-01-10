@@ -23,14 +23,17 @@ import Control.Monad.State (execState)
 import Data.List
 import Data.Maybe
 import Data.Monoid
+import Data.Ord
 import FRP.Counters
 import FRP.Events
 import FRP.Yampa
 import FRP.Yampa.Vector2
 import Graphics.UI.SDL hiding (Event, NoEvent)
 import qualified Graphics.UI.SDL as SDL
+import System.IO.Unsafe
+import System.Random
 
--- import Debug.Trace
+import Debug.Trace
 
 -- Exposed types
 -- ----------------------------------------------------------------------------
@@ -62,10 +65,10 @@ data GlobalState = GlobalState {
 
 data GameObject = GameObject !Kind !LaneControl deriving (Show, Eq)
 data LaneControl = LaneControl !Lane !Float !Direction deriving (Show, Eq)
-data Kind = Player | Enemy | Laser deriving (Show, Eq)
+data Kind = Player | Enemy Int | Laser deriving (Show, Eq)
 
 initSpaceship = GameObject Player (LaneControl (HLane 9) laneMax DLeft)
-initEnemy n = GameObject Enemy (LaneControl (VLane n) 0 DDown)
+initEnemy n = GameObject (Enemy n) (LaneControl (VLane n) 0 DDown)
 
 data GameRound = GameRound {
 	gr_objects :: ![GameObject]
@@ -225,13 +228,17 @@ type GameObjectControllers = SF
 	(Event [SpaceshipCommand], [GameObject], Event SLCounterCommand)
 	(GameObjectContainer (GameObject, Event FireTheLazer))
 
+isEnemy :: GameObject -> Bool
+isEnemy (GameObject (Enemy _) _) = True
+isEnemy _ = False
+
 doGameRound :: GlobalState ->
 	SF (Event SDLEvents) ((GameOutput, Event SLCounterCommand), Event (RoundOutcome, GlobalState))
 doGameRound gs0 = proc e -> do
 	GameObjectContainer counterCmd0 objs <-
 		objects initRound <<< spaceshipInput -< e
 
-	let roundCompleted = not.any (\(GameObject p _) -> p == Enemy)$ objs
+	let roundCompleted = not.any isEnemy$ objs
 
 	let counterCmd1 = if roundCompleted
 		then Event$ ScoreLevelUpdate (CounterAdd levelBonus) (CounterAdd 1)
@@ -260,7 +267,7 @@ objects objs0 = proc e -> do
 
 mkController :: GameObject -> GameObjectController
 mkController (obj@(GameObject Player _)) = player baseSpeed obj
-mkController (obj@(GameObject Enemy _)) = enemy baseSpeed obj
+mkController (obj@(GameObject (Enemy _) _)) = enemy baseSpeed obj
 mkController (obj@(GameObject Laser _)) = laser (baseSpeed * 1.2) obj
 
 objectControl :: GameObjectContainer GameObjectController -> GameObjectControllers
@@ -268,14 +275,14 @@ objectControl objs0 = pSwitch
 	(\(cmd, feedback, counterCmd) sfs ->
 		((cmd, feedback),) <$> setCounterCommand counterCmd sfs)
 	objs0
-	gameLogic$ \controllers (containerOps, objs, counterCmd) ->
-		(NoEvent, objs, counterCmd) >--
-			objectControl$ updateControllers controllers containerOps objs
+	gameLogic$ \controllers (containerOps, lasers, objs, counterCmd) ->
+		(NoEvent, objs ++ lasers, counterCmd) >--
+			objectControl$ updateControllers controllers containerOps lasers
 		
 	where
-		updateControllers (GameObjectContainer e controllers) containerOps objs =
+		updateControllers (GameObjectContainer e controllers) containerOps lasers =
 			GameObjectContainer e
-				(applyContainerOps controllers containerOps ++ (mkController <$> objs))
+				(applyContainerOps controllers containerOps ++ (mkController <$> lasers))
 
 data ObjectContainerOp = KeepIt | ChuckIt deriving (Show, Eq)
 applyContainerOps :: [a] -> [ObjectContainerOp] -> [a]
@@ -283,7 +290,7 @@ applyContainerOps xs cmds = fst <$> filter ((/= ChuckIt).snd) (xs `zip` cmds)
 
 gameLogic :: SF
 	((Event [SpaceshipCommand], [GameObject], Event SLCounterCommand), GameObjectContainer (GameObject, Event FireTheLazer))
-	(Event ([ObjectContainerOp], [GameObject], Event SLCounterCommand))
+	(Event ([ObjectContainerOp], [GameObject], [GameObject], Event SLCounterCommand))
 gameLogic = proc (_, GameObjectContainer _ objCmds) -> do
 	let objs = fst <$> objCmds
 	let candidates = case tails objs of
@@ -309,20 +316,24 @@ gameLogic = proc (_, GameObjectContainer _ objCmds) -> do
 
 	let counterCmd = if score > 0 then Event$ ScoreUpdate$ CounterAdd score else NoEvent
 	returnA -< if anyCollisions || not (null newLasers)
-		then Event (containerOps, newLasers, counterCmd) else NoEvent
+		then Event (containerOps, newLasers, objs, counterCmd) else NoEvent
 	
 isCollision :: GameObject -> GameObject -> Bool
 -- lasers cannot collide with lasers
 isCollision (GameObject Laser _) (GameObject Laser _) = False
-isCollision a b =
+-- enemies cannot collide with themselves
+isCollision a@(GameObject (Enemy x) _) b@(GameObject (Enemy y) _) =
+	if x == y then False else isCollision0 a b
+isCollision a b = isCollision0 a b
+isCollision0 a b =
 	let
 		(x1, y1, w1, h1) = boundingRect a
 		(x2, y2, w2, h2) = boundingRect b
 	in x1 + w1 >= x2 && x2 + w2 >= x1 && y1 + h1 >= y2 && y2 + h2 >= y1
 
 scoreCollision :: GameObject -> GameObject -> Int
-scoreCollision (GameObject Laser _) (GameObject Enemy _) = 2
-scoreCollision (GameObject Enemy _) (GameObject Laser _) = 2
+scoreCollision (GameObject Laser _) (GameObject (Enemy _) _) = 2
+scoreCollision (GameObject (Enemy _) _) (GameObject Laser _) = 2
 scoreCollision _ _ = 0
 
 isLaserOutOfBounds :: GameObject -> Bool
@@ -344,18 +355,117 @@ laser speed0 (GameObject k l0) =
 	(arr$ \(l, _) -> (GameObject k l, NoEvent))
 		<<< laneMotion speed0 l0 <<< never
 
+randomTurnInterval = 5
+seekInterval = 4 
+laserInterval = 10
+
 enemy :: Float -> GameObject -> GameObjectController
 enemy speed0 obj0 = proc (_, objs) -> do
 	e <- after firstTurnTime DUp -< ()
 
-	obj <- spaceshipMotion speed0 obj0 -< e
+	rec 
+		rTurn <- occasionally stdGen randomTurnInterval () -< ()
+		sTurn <- occasionally stdGen seekInterval () -< ()
+		mayFireLaser <- occasionally stdGen laserInterval () -< ()
 
-	returnA -< (obj, NoEvent)
+		obj <- spaceshipMotion speed0 obj0 <<< iPre NoEvent -<
+			mergeEvents [avoidCollision, e, randomTurn, seekPlayer]
+		
+		let GameObject _ (LaneControl lane p d) = obj
+		let ignoreLasers = filter (\(GameObject x _) -> x /= Laser) objs
+		let validTurns = filter (canMove ignoreLasers obj)
+			[flipDirection d, turnDirection d, flipDirection$ turnDirection d, d]
+
+		let avoidCollision = if canMove ignoreLasers obj d then NoEvent
+			else case validTurns of
+				[] -> NoEvent
+				x:_ -> Event x
+
+		let randomTurn = if not$ isEvent rTurn then NoEvent
+			else case validTurns of
+				[] -> NoEvent
+				[x] -> NoEvent
+				x:y:_ -> Event y
+
+		let playerDirection = directionToPlayer obj (findPlayer objs)
+		let seekPlayer =
+			if isEvent sTurn && canMove ignoreLasers obj playerDirection
+			then Event playerDirection else NoEvent
+
+	let doFireLaser =
+		if isEvent mayFireLaser && losToPlayer obj objs then
+			let Event (FireTheLazer l) = fireLaser obj
+			in if not$ any (== l) objs then Event$ FireTheLazer l else NoEvent
+		else NoEvent
+
+	returnA -< (obj, doFireLaser)
 	where
 		firstTurnTime = realToFrac$
 			fromIntegral (laneNumber obj0 * tileSize * 2) / speed0
 		laneNumber (GameObject _ (LaneControl (HLane x) _ _)) = x
 		laneNumber (GameObject _ (LaneControl (VLane x) _ _)) = x
+		flipDirection DUp = DDown
+		flipDirection DDown = DUp
+		flipDirection DLeft = DRight
+		flipDirection DRight = DLeft
+		turnDirection DUp = DLeft
+		turnDirection DLeft = DDown
+		turnDirection DDown = DRight
+		turnDirection DRight = DUp
+
+		canMove objs (GameObject t (LaneControl (HLane x) p d)) DUp =
+			noCollision (GameObject t (LaneControl (HLane$ x - 1) p DUp)) objs
+		canMove objs (GameObject t (LaneControl (VLane x) p d)) DUp =
+			noCollision (GameObject t (LaneControl (VLane x) (p - fTileSize) DUp)) objs
+		canMove objs (GameObject t (LaneControl (HLane x) p d)) DDown =
+			noCollision (GameObject t (LaneControl (HLane$ x + 1) p DDown)) objs
+		canMove objs (GameObject t (LaneControl (VLane x) p d)) DDown =
+			noCollision (GameObject t (LaneControl (VLane x) (p + fTileSize) DDown)) objs
+		canMove objs (GameObject t (LaneControl (VLane x) p d)) DLeft =
+			noCollision (GameObject t (LaneControl (VLane$ x - 1) p DLeft)) objs
+		canMove objs (GameObject t (LaneControl (HLane x) p d)) DLeft =
+			noCollision (GameObject t (LaneControl (HLane x) (p - fTileSize) DLeft)) objs
+		canMove objs (GameObject t (LaneControl (VLane x) p d)) DRight =
+			noCollision (GameObject t (LaneControl (VLane$ x + 1) p DRight)) objs
+		canMove objs (GameObject t (LaneControl (HLane x) p d)) DRight =
+			noCollision (GameObject t (LaneControl (HLane x) (p + fTileSize) DRight)) objs
+		noCollision obj objs = (inRange obj) && (not$ any (isCollision obj) objs)
+		fTileSize = fromIntegral tileSize
+		inRange (GameObject _ (LaneControl _ p _)) = p >= 0 && p <= laneMax
+		stdGen = unsafePerformIO getStdGen
+
+directionToPlayer :: GameObject -> GameObject -> Direction
+directionToPlayer (GameObject _ e) (GameObject _ p) =
+	let 
+		(x1, y1) = lanePosition e
+		(x2, y2) = lanePosition p
+		dx = x2 - x1
+		dy = y2 - y1
+	in
+		if dx > dy then if dx >= 0 then DRight else DLeft
+		else if dy >= 0 then DDown else DUp
+
+findPlayer :: [GameObject] -> GameObject
+findPlayer ((p@(GameObject Player _)):_) = p
+findPlayer (_:xs) = findPlayer xs 
+findPlayer _ = error "This cannot happen, because there is always a player object"
+
+losToPlayer :: GameObject -> [GameObject] -> Bool
+losToPlayer (GameObject _ (LaneControl lane0 p0 d0)) objs = 
+	case reverse$ sortBy (comparing distance)$ filter isInLane objs of
+		(GameObject Player _):_ -> True
+		_ -> False
+	where
+		isInLane (GameObject _ (LaneControl l p _)) = l == lane0 || switchLane l p == lane0
+		switchLane (HLane _) p = VLane (floor$ p / 52)
+		switchLane (VLane _) p = HLane (floor$ p / 52)
+		laneP (HLane x) = fromIntegral$ x * 52
+		laneP (VLane x) = fromIntegral$ x * 52
+		distance (GameObject _ (LaneControl l p d)) =
+			if d0 == DLeft || d0 == DUp then
+				if l == lane0 then p0 - p else p0 - (laneP l)
+			else
+				if l == lane0 then p - p0 else (laneP l) - p0
 
 player :: Float -> GameObject -> GameObjectController
 player speed0 obj0 = proc (e, _) -> do

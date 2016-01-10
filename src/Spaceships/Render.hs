@@ -76,7 +76,7 @@ renderOutput0 (Playing (GameRound {..})) = do
 		let pos = lanePosition lane
 		case kind of
 			Player -> renderSpaceship pos dir True
-			Enemy -> renderSpaceship pos dir False
+			Enemy _ -> renderSpaceship pos dir False
 			Laser -> renderLaser pos dir
 
 renderSpaceship  :: (Int, Int) -> Direction -> Bool -> ReaderT Assets IO ()
