@@ -93,6 +93,7 @@ nLanes = 10 :: Int
 baseSpeed = 8 :: Time
 speedRamp = 1.1 :: Time
 laserWidth = 10 :: Int -- TODO: check this
+maxObjects = 1000
 
 laneMax :: Float
 laneMax = fromIntegral$ ((nLanes + nLanes - 1) * tileSize) - tileSize - 1
@@ -227,7 +228,7 @@ type GameObjectController = SF
 	(Event [SpaceshipCommand], [GameObject])
 	(GameObject, Event FireTheLazer)
 type GameObjectControllers = SF
-	(Event [SpaceshipCommand], [GameObject], Event SLCounterCommand)
+	(Event [SpaceshipCommand], [GameObject])
 	(GameObjectContainer (GameObject, Event FireTheLazer))
 
 isEnemy :: GameObject -> Bool
@@ -264,7 +265,7 @@ objects speed objs0 = proc e -> do
 	rec
 		r@(GameObjectContainer _ objs) <- (arr$ fmap fst)
 			<<< objectControl speed (GameObjectContainer NoEvent (mkController speed <$> objs0))
-			<<< iPre (NoEvent, objs0, NoEvent) -< (e, objs, NoEvent)
+			<<< iPre (NoEvent, objs0) -< (e, objs)
 	returnA -< r
 
 mkController :: Time -> GameObject -> GameObjectController
@@ -272,15 +273,17 @@ mkController speed (obj@(GameObject Player _)) = player speed obj
 mkController speed (obj@(GameObject (Enemy _) _)) = enemy speed obj
 mkController speed (obj@(GameObject Laser _)) = laser (speed * 1.2) obj
 
+infixr 0 -:>
+(-:>) :: b -> SF a b -> SF a b
+b -:> sf = switch ((b, NoEvent) --> constant (b, Event ())) (\_ -> sf)
+
 objectControl :: Time ->
 	GameObjectContainer GameObjectController ->
 	GameObjectControllers
-objectControl speed0 objs0 = pSwitch
-	(\(cmd, feedback, counterCmd) sfs ->
-		((cmd, feedback),) <$> setCounterCommand counterCmd sfs)
+objectControl speed0 objs0 = pSwitchB
 	objs0
 	gameLogic$ \controllers (containerOps, lasers, objs, counterCmd) ->
-		(NoEvent, objs ++ lasers, counterCmd) >--
+		GameObjectContainer counterCmd ((, NoEvent) <$> objs) -:>
 			objectControl speed0$ updateControllers controllers containerOps lasers
 		
 	where
@@ -293,7 +296,7 @@ applyContainerOps :: [a] -> [ObjectContainerOp] -> [a]
 applyContainerOps xs cmds = fst <$> filter ((/= ChuckIt).snd) (xs `zip` cmds)
 
 gameLogic :: SF
-	((Event [SpaceshipCommand], [GameObject], Event SLCounterCommand), GameObjectContainer (GameObject, Event FireTheLazer))
+	((Event [SpaceshipCommand], [GameObject]), GameObjectContainer (GameObject, Event FireTheLazer))
 	(Event ([ObjectContainerOp], [GameObject], [GameObject], Event SLCounterCommand))
 gameLogic = proc (_, GameObjectContainer _ objCmds) -> do
 	let objs = fst <$> objCmds
