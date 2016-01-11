@@ -378,15 +378,16 @@ enemy speed0 obj0 = proc (_, objs) -> do
 		obj <- spaceshipMotion speed0 obj0 <<< iPre NoEvent -<
 			mergeEvents [avoidCollision, e, randomTurn, seekPlayer]
 		
-		let GameObject _ (LaneControl lane p d) = obj
-		let ignoreLasers = filter (\(GameObject x _) -> x /= Laser) objs
-		let validTurns = filter (canMove ignoreLasers obj)
+		let GameObject (Enemy en) (LaneControl lane p d) = obj
+		let ignoreLasers = filter (\(GameObject x _) ->
+			x /= Laser && x /= Player) objs
+		let validTurns = filter (safeToTurn ignoreLasers obj)
 			[flipDirection d, turnDirection d, flipDirection$ turnDirection d, d]
 
-		let avoidCollision = if canMove ignoreLasers obj d then NoEvent
-			else case validTurns of
-				[] -> NoEvent
-				x:_ -> Event x
+		let avoidCollision = if safeToGo ignoreLasers obj d then NoEvent
+				else case validTurns of
+					[] -> NoEvent
+					x:_ -> Event x
 
 		let randomTurn = if not$ isEvent rTurn then NoEvent
 			else case validTurns of
@@ -396,7 +397,7 @@ enemy speed0 obj0 = proc (_, objs) -> do
 
 		let playerDirection = directionToPlayer obj (findPlayer objs)
 		let seekPlayer =
-			if isEvent sTurn && canMove ignoreLasers obj playerDirection
+			if isEvent sTurn && safeToTurn ignoreLasers obj playerDirection
 			then Event playerDirection else NoEvent
 
 	let doFireLaser =
@@ -422,25 +423,23 @@ enemy speed0 obj0 = proc (_, objs) -> do
 		turnDirection DDown = DRight
 		turnDirection DRight = DUp
 
-		canMove objs (GameObject t (LaneControl (HLane x) p d)) DUp =
-			noCollision (GameObject t (LaneControl (HLane$ x - 1) p DUp)) objs
-		canMove objs (GameObject t (LaneControl (VLane x) p d)) DUp =
-			noCollision (GameObject t (LaneControl (VLane x) (p - fTileSize) DUp)) objs
-		canMove objs (GameObject t (LaneControl (HLane x) p d)) DDown =
-			noCollision (GameObject t (LaneControl (HLane$ x + 1) p DDown)) objs
-		canMove objs (GameObject t (LaneControl (VLane x) p d)) DDown =
-			noCollision (GameObject t (LaneControl (VLane x) (p + fTileSize) DDown)) objs
-		canMove objs (GameObject t (LaneControl (VLane x) p d)) DLeft =
-			noCollision (GameObject t (LaneControl (VLane$ x - 1) p DLeft)) objs
-		canMove objs (GameObject t (LaneControl (HLane x) p d)) DLeft =
-			noCollision (GameObject t (LaneControl (HLane x) (p - fTileSize) DLeft)) objs
-		canMove objs (GameObject t (LaneControl (VLane x) p d)) DRight =
-			noCollision (GameObject t (LaneControl (VLane$ x + 1) p DRight)) objs
-		canMove objs (GameObject t (LaneControl (HLane x) p d)) DRight =
-			noCollision (GameObject t (LaneControl (HLane x) (p + fTileSize) DRight)) objs
-		noCollision obj objs = (inRange obj) && (not$ any (isCollision obj) objs)
-		fTileSize = fromIntegral tileSize
-		inRange (GameObject _ (LaneControl _ p _)) = p >= 0 && p <= laneMax
+		nextPos (GameObject t (LaneControl (HLane x) p d)) DUp = GameObject t (LaneControl (HLane$ x - 1) p DUp)
+		nextPos (GameObject t (LaneControl (VLane x) p d)) DUp = GameObject t (LaneControl (VLane x) (p - fTileSize) DUp)
+		nextPos (GameObject t (LaneControl (HLane x) p d)) DDown = GameObject t (LaneControl (HLane$ x + 1) p DDown)
+		nextPos (GameObject t (LaneControl (VLane x) p d)) DDown = GameObject t (LaneControl (VLane x) (p + fTileSize) DDown)
+		nextPos (GameObject t (LaneControl (VLane x) p d)) DLeft = GameObject t (LaneControl (VLane$ x - 1) p DLeft)
+		nextPos (GameObject t (LaneControl (HLane x) p d)) DLeft = GameObject t (LaneControl (HLane x) (p - fTileSize) DLeft)
+		nextPos (GameObject t (LaneControl (VLane x) p d)) DRight = GameObject t (LaneControl (VLane$ x + 1) p DRight)
+		nextPos (GameObject t (LaneControl (HLane x) p d)) DRight = GameObject t (LaneControl (HLane x) (p + fTileSize) DRight)
+
+		safeToGo objs obj d = inRange obj && noCollision (nextPos obj d) objs
+		safeToTurn objs obj d = let obj1 = nextPos obj d in inRange obj1 && noCollision obj1 objs
+		noCollision obj objs = not$ any (isCollision obj) objs
+
+		fTileSize = (fromIntegral tileSize)
+		inRange g@(GameObject _ (LaneControl _ p d)) =
+			let ln = laneNumber g in ln >= 0 && ln < nLanes &&
+				if d == DUp || d == DLeft then p > 0 else p < laneMax
 		stdGen = unsafePerformIO getStdGen
 
 directionToPlayer :: GameObject -> GameObject -> Direction
