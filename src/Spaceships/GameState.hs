@@ -409,7 +409,7 @@ enemy speed0 obj0 = proc (_, objs) -> do
 	returnA -< (obj, doFireLaser)
 	where
 		seekInterval =  (baseSeekInterval * baseSpeed) / speed0
-		laserInterval = baseLaserInterval * (baseSpeed / (speed0 * 1.2))
+		laserInterval = baseLaserInterval * (baseSpeed / (speed0 * 1.5))
 		firstTurnTime = realToFrac$
 			fromIntegral (laneNumber obj0 * tileSize * 2) / speed0
 		laneNumber (GameObject _ (LaneControl (HLane x) _ _)) = x

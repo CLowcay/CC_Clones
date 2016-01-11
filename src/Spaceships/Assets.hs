@@ -68,7 +68,7 @@ loadSprites = do
 	gameOver <- loadBMP$ getAssetPath "gfx/gameOver.bmp"
 	digits <- loadBMP$ getAssetPath "gfx/Digits.bmp"
 
-	forM_ [paused, gameOver, panel, digits]$ \surface ->
+	forM_ [sheet1, paused, gameOver, panel, digits]$ \surface ->
 		setColorKey surface [SrcColorKey] (Pixel 0x00FF00FF)
 
 	let sbox = makeSprite boxTile (26, 26) (0, 0)
