@@ -93,6 +93,7 @@ nLanes = 10 :: Int
 baseSpeed = 8 :: Time
 speedRamp = 1.1 :: Time
 laserWidth = 10 :: Int -- TODO: check this
+shipWidth = tileSize - laserWidth :: Int
 maxObjects = 1000
 
 laneMax :: Float
@@ -113,8 +114,12 @@ boundingRect (GameObject Laser (lane@(LaneControl _ _ dir))) =
 		DUp ->    (x, y, tileSize, laserWidth)
 		DDown ->  (x, y + tileSize - laserWidth, tileSize, laserWidth)
 		DRight -> (x + tileSize - laserWidth, y, laserWidth, tileSize)
-boundingRect (GameObject _ lane) =
-	let (x, y) = lanePosition lane in (x, y, tileSize, tileSize)
+boundingRect (GameObject _ lane@(LaneControl _ _ dir)) =
+	let (x, y) = lanePosition lane in case dir of
+		DLeft ->  (x + tileSize - shipWidth, y, shipWidth, tileSize)
+		DUp ->    (x, y + tileSize - shipWidth, tileSize, shipWidth)
+		DDown ->  (x, y, tileSize, shipWidth)
+		DRight -> (x, y, shipWidth, tileSize)
 
 resetGlobalState :: GlobalState -> GlobalState
 resetGlobalState gs = gs {gs_level = 1, gs_score = 0}
@@ -353,7 +358,7 @@ initRound = initSpaceship : (initEnemy <$> [0..(nLanes - 1)])
 fireLaser :: GameObject -> Event FireTheLazer
 fireLaser (GameObject _ (LaneControl lane0 p0 d0)) =
 	let p = p0 + (fromIntegral$
-		if d0 == DLeft || d0 == DUp then 0 - tileSize else tileSize)
+		if d0 == DLeft || d0 == DUp then 0 - laserWidth - 1 else laserWidth + 1)
 	in if p <= 0 || p >= laneMax then NoEvent
 		else Event$ FireTheLazer$ GameObject Laser (LaneControl lane0 p d0)
 
@@ -362,8 +367,8 @@ laser speed0 (GameObject k l0) =
 	(arr$ \(l, _) -> (GameObject k l, NoEvent))
 		<<< laneMotion speed0 l0 <<< never
 
-randomTurnInterval = baseSpeed * 3
-baseSeekInterval = baseSpeed * 4
+randomTurnInterval = baseSpeed * 2
+baseSeekInterval = baseSpeed * 2
 baseLaserInterval = 60
 
 enemy :: Time -> GameObject -> GameObjectController
