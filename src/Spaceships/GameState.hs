@@ -278,10 +278,6 @@ mkController speed (obj@(GameObject Player _)) = player speed obj
 mkController speed (obj@(GameObject (Enemy _) _)) = enemy speed obj
 mkController speed (obj@(GameObject Laser _)) = laser (speed * 1.2) obj
 
-infixr 0 -:>
-(-:>) :: b -> SF a b -> SF a b
-b -:> sf = switch ((b, NoEvent) --> constant (b, Event ())) (\_ -> sf)
-
 objectControl :: Time ->
 	GameObjectContainer GameObjectController ->
 	GameObjectControllers
